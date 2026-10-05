@@ -1,0 +1,12 @@
+{
+  "name": "Happy Life Duo",
+  "description": "Nuestro Lugar Seguro - La app definitiva para parejas: sincronización de estados, batería social, recordatorios compartidos, diario, chat y apoyo emocional.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
