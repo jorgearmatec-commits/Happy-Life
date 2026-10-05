@@ -253,7 +253,10 @@ interface AppContextType {
   setActiveMenu: (menuId: string) => void;
   toggleRole: () => void;
   updateUserName: (target: 'me' | 'partner', newName: string) => void;
-  updateMyStatus: (status: StatusOption, emoji: string) => void;
+  updateMyStatus: (
+    statusOrPartial: StatusOption | { lastAction?: string; status?: StatusOption; emoji?: string },
+    emoji?: string
+  ) => void;
   updateMySocialBattery: (value: number) => void;
   updateMyFeeling: (feeling: EmotionOption, emoji: string) => void;
   updateMyCurrentTrack: (track: PlayingTrackInfo | undefined) => void;
@@ -393,23 +396,48 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const updateMyStatus = (status: StatusOption, emoji: string) => {
+  const updateMyStatus = (
+    statusOrPartial: StatusOption | { lastAction?: string; status?: StatusOption; emoji?: string },
+    emoji?: string
+  ) => {
     const nowStr = 'Ahora';
-    const actionText = `Cambió su estado a: ${emoji} ${status}`;
+    if (typeof statusOrPartial === 'object') {
+      const actionText = statusOrPartial.lastAction || 'Actualizó su estado';
+      if (activeRole === 'me') {
+        setMe((prev) => ({
+          ...prev,
+          status: statusOrPartial.status || prev.status,
+          statusEmoji: statusOrPartial.emoji || prev.statusEmoji,
+          lastAction: actionText,
+          lastActionTime: nowStr,
+        }));
+      } else {
+        setPartner((prev) => ({
+          ...prev,
+          status: statusOrPartial.status || prev.status,
+          statusEmoji: statusOrPartial.emoji || prev.statusEmoji,
+          lastAction: actionText,
+          lastActionTime: nowStr,
+        }));
+      }
+      return;
+    }
+
+    const actionText = `Cambió su estado a: ${emoji || ''} ${statusOrPartial}`;
 
     if (activeRole === 'me') {
       setMe((prev) => ({
         ...prev,
-        status,
-        statusEmoji: emoji,
+        status: statusOrPartial,
+        statusEmoji: emoji || '✨',
         lastAction: actionText,
         lastActionTime: nowStr,
       }));
     } else {
       setPartner((prev) => ({
         ...prev,
-        status,
-        statusEmoji: emoji,
+        status: statusOrPartial,
+        statusEmoji: emoji || '✨',
         lastAction: actionText,
         lastActionTime: nowStr,
       }));

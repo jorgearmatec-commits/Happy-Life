@@ -44,79 +44,85 @@ const VisualBattery: React.FC<{ percentage: number; isInteractive?: boolean; onC
   const getLevelConfig = (pct: number) => {
     if (pct === 0) {
       return {
-        fillBg: 'bg-red-600',
-        textColor: 'text-red-400',
-        iconColor: 'text-red-400',
-        statusTitle: 'Agotado',
-        insideLabel: 'Agotado',
+        fillBg: 'bg-[#ef4444]',
+        textColor: 'text-[#ef4444]',
+        iconColor: 'text-[#ef4444]',
+        statusTitle: 'Agotado 0% 💀',
         insideIcon: '💀',
         IconComponent: BatteryWarning,
         glow: 'shadow-red-600/60',
-        borderColor: 'border-red-500/60',
+        borderColor: 'border-[#ef4444]/60',
+        partnerNotice:
+          'Batería en 0% (Agotada 💀): La persona solo quiere estar sola y tranquila por un tiempo para recargar su sistema nervioso sin presiones.',
       };
     }
-    if (pct <= 25) {
+    if (pct <= 29) {
       return {
-        fillBg: 'bg-red-500',
-        textColor: 'text-red-400',
-        iconColor: 'text-red-400',
-        statusTitle: 'Nivel Crítico',
-        insideLabel: 'Nivel Crítico',
+        fillBg: 'bg-[#ef4444]',
+        textColor: 'text-[#ef4444]',
+        iconColor: 'text-[#ef4444]',
+        statusTitle: 'Nivel Crítico 🛑',
         insideIcon: '🛑',
         IconComponent: BatteryWarning,
         glow: 'shadow-red-500/50',
-        borderColor: 'border-red-500/40',
+        borderColor: 'border-[#ef4444]/40',
+        partnerNotice:
+          'Batería en Nivel Crítico 🛑: Muy poca energía social. Requiere calma, comprensión y cero reproches para recargar.',
       };
     }
-    if (pct <= 50) {
+    if (pct <= 41) {
       return {
-        fillBg: 'bg-amber-400',
-        textColor: 'text-amber-300',
-        iconColor: 'text-amber-300',
-        statusTitle: 'Nivel Bajo',
-        insideLabel: 'Nivel Bajo',
+        fillBg: 'bg-[#facc15]',
+        textColor: 'text-[#facc15]',
+        iconColor: 'text-[#facc15]',
+        statusTitle: 'Nivel Bajo 🪫',
         insideIcon: '🪫',
         IconComponent: BatteryLow,
-        glow: 'shadow-amber-400/50',
-        borderColor: 'border-amber-400/40',
+        glow: 'shadow-yellow-400/50',
+        borderColor: 'border-[#facc15]/40',
+        partnerNotice:
+          'Nivel Bajo 🪫: Energía social limitada. Prefiere planes tranquilos, abrazos en silencio o descansar juntos.',
       };
     }
-    if (pct < 72) {
+    if (pct <= 71) {
       return {
-        fillBg: 'bg-orange-500',
-        textColor: 'text-orange-400',
-        iconColor: 'text-orange-400',
-        statusTitle: 'Recargando',
-        insideLabel: 'Recargando',
+        fillBg: 'bg-[#f97316]',
+        textColor: 'text-[#f97316]',
+        iconColor: 'text-[#f97316]',
+        statusTitle: 'Recargando ⚡',
         insideIcon: '⚡',
         IconComponent: BatteryMedium,
         glow: 'shadow-orange-500/50',
-        borderColor: 'border-orange-500/40',
+        borderColor: 'border-[#f97316]/40',
+        partnerNotice:
+          'Recargando ⚡: Su nivel de energía está subiendo de forma positiva y saludable.',
       };
     }
     if (pct < 100) {
       return {
-        fillBg: 'bg-emerald-400',
-        textColor: 'text-emerald-300',
-        iconColor: 'text-emerald-300',
-        statusTitle: 'Alta',
-        insideLabel: 'Alta',
+        fillBg: 'bg-[#22c55e]',
+        textColor: 'text-[#22c55e]',
+        iconColor: 'text-[#22c55e]',
+        statusTitle: 'Alta ✨',
         insideIcon: '🔋',
         IconComponent: Battery,
-        glow: 'shadow-emerald-400/50',
-        borderColor: 'border-emerald-400/40',
+        glow: 'shadow-green-500/50',
+        borderColor: 'border-[#22c55e]/40',
+        partnerNotice:
+          'Alta ✨: ¡Gran disposición para conversar, reír y compartir actividades lindas en pareja!',
       };
     }
     return {
-      fillBg: 'bg-emerald-500',
-      textColor: 'text-emerald-400',
-      iconColor: 'text-emerald-400',
-      statusTitle: 'Completa',
-      insideLabel: 'Completa',
+      fillBg: 'bg-[#15803d]',
+      textColor: 'text-[#22c55e]',
+      iconColor: 'text-[#22c55e]',
+      statusTitle: 'Completa (100%) ⚡',
       insideIcon: '⚡',
       IconComponent: BatteryCharging,
       glow: 'shadow-emerald-600/60',
-      borderColor: 'border-emerald-500/50',
+      borderColor: 'border-[#15803d]/50',
+      partnerNotice:
+        'Completa (100%) ⚡: Batería social al máximo nivel, óptimo estado emocional y afectivo.',
     };
   };
 
@@ -138,7 +144,7 @@ const VisualBattery: React.FC<{ percentage: number; isInteractive?: boolean; onC
         </div>
       </div>
 
-      {/* Forma Física de Pila / Batería con Rayitas Internas Segmentadas (Sin texto interno como solicitó el usuario) */}
+      {/* Forma Física de Pila / Batería con Rayitas Internas Segmentadas */}
       <div className="flex items-center gap-1">
         <div
           className={`relative flex-1 h-8 rounded-2xl bg-black/80 p-1.5 border-2 ${config.borderColor} shadow-inner flex items-center gap-1 transition-colors duration-300 overflow-hidden`}
@@ -147,7 +153,7 @@ const VisualBattery: React.FC<{ percentage: number; isInteractive?: boolean; onC
           {Array.from({ length: totalSegments }).map((_, idx) => {
             const segThreshold = (idx + 1) * 10;
             const isLit = percentage >= segThreshold - 5;
-            const isCriticalPulse = percentage <= 25 && percentage > 0 && isLit;
+            const isCriticalPulse = percentage <= 29 && percentage > 0 && isLit;
 
             return (
               <div
@@ -168,9 +174,18 @@ const VisualBattery: React.FC<{ percentage: number; isInteractive?: boolean; onC
         <div className="w-2 h-5 rounded-r-md bg-white/40 border border-l-0 border-white/30 shrink-0" />
       </div>
 
-      {/* Slider interactivo si es mi tarjeta (Sin porcentajes ni textos abajo, solo la barra) */}
+      {/* TEXTO DE NIVEL RESTAURADO DEBAJO DE LA BARRA (Agotado, Nivel Crítico, Nivel Bajo, Recargando, Alta, Completa) */}
+      <div className="flex items-center justify-between px-1 text-xs">
+        <span className="text-[11px] text-white/50 font-medium">Estado del nivel:</span>
+        <span className={`font-black text-xs ${config.textColor} flex items-center gap-1`}>
+          <span>{config.insideIcon}</span>
+          <span>{config.statusTitle}</span>
+        </span>
+      </div>
+
+      {/* Slider interactivo si es mi tarjeta */}
       {isInteractive && onChange && (
-        <div className="pt-1.5">
+        <div className="pt-1">
           <input
             type="range"
             min="0"
@@ -182,13 +197,13 @@ const VisualBattery: React.FC<{ percentage: number; isInteractive?: boolean; onC
         </div>
       )}
 
-      {/* Solo en tarjeta de pareja mostrar el mensaje si está en 0%, en la mía no mostrar textos abajo */}
-      {!isInteractive && percentage === 0 && (
-        <div className="p-3 rounded-2xl bg-red-950/80 border border-red-500/50 text-red-200 text-xs leading-relaxed mt-2 shadow-lg">
-          <strong className="block text-red-300 mb-1">
-            Batería en 0% (Agotada 💀):
-          </strong>
-          La persona solo quiere estar sola y tranquila por un tiempo para recargar su sistema nervioso sin presiones.
+      {/* Mensaje automático para pareja según el nivel de batería */}
+      {!isInteractive && config.partnerNotice && (
+        <div className="p-3 rounded-2xl bg-black/60 border border-white/10 text-white/90 text-xs leading-relaxed mt-2 shadow-md">
+          <div className="flex items-center gap-1.5 font-bold mb-1 text-white/80">
+            <span>Mensaje Automático para Pareja:</span>
+          </div>
+          <p className="text-white/80">{config.partnerNotice}</p>
         </div>
       )}
     </div>
@@ -345,6 +360,34 @@ export const CurrentStatus: React.FC = () => {
             Sincronizado ✨
           </span>
         </div>
+
+        {/* Banner: Lo que está escuchando mi pareja actualmente */}
+        {currentDisplayPartner.currentTrack && currentDisplayPartner.currentTrack.isPlaying && (
+          <div className="mb-4 p-3.5 rounded-2xl bg-gradient-to-r from-rose-950/50 via-purple-950/40 to-slate-900/60 border border-rose-400/30 flex items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-400/30 flex items-center justify-center text-rose-300 shrink-0">
+                <Headphones className="w-5 h-5 animate-pulse" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[9px] font-black uppercase text-rose-300 tracking-wider flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  Escuchando en su teléfono
+                </span>
+                <p className="text-xs font-bold text-white truncate">
+                  {currentDisplayPartner.currentTrack.title}
+                </p>
+                {currentDisplayPartner.currentTrack.artist && (
+                  <p className="text-[10px] text-white/60 truncate">
+                    {currentDisplayPartner.currentTrack.artist}
+                  </p>
+                )}
+              </div>
+            </div>
+            <span className="text-[10px] px-2.5 py-1 rounded-full bg-rose-500/25 border border-rose-400/30 text-rose-200 font-bold shrink-0">
+              {currentDisplayPartner.currentTrack.source}
+            </span>
+          </div>
+        )}
 
         {/* Batería Social con icono de pila real */}
         <div className="mb-4 bg-white/5 p-4 rounded-3xl border border-white/10">

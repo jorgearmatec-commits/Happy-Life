@@ -12,7 +12,9 @@ import {
   Clock,
   CheckCircle,
   Eye,
-  EyeOff
+  EyeOff,
+  Send,
+  Sparkles
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ModalPortal } from './ModalPortal';
@@ -22,7 +24,9 @@ export const LocationSection: React.FC = () => {
     settings,
     updateSettings,
     updateMyLocation,
+    updateMyStatus,
     toggleRealTimeLocation,
+    sendMessage,
     me,
     partner,
     activeRole,
@@ -32,24 +36,25 @@ export const LocationSection: React.FC = () => {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
 
-  // Avisos rápidos incluyendo "Voy atrasada/o 🏃‍♀️" y "Tengo mala señal 📵"
+  // Avisos rápidos completos en lista vertical
   const PRESETS = [
-    { label: 'Voy atrasada/o 🏃‍♀️', icon: '🏃‍♀️' },
-    { label: 'Tengo mala señal 📵', icon: '📵' },
-    { label: 'Llegué a salvo ✅', icon: '✅' },
-    { label: 'En casa 🏡', icon: '🏡' },
-    { label: 'En camino 🚗', icon: '🚗' },
-    { label: 'En el trabajo 🏢', icon: '🏢' },
+    { label: 'Llegué a salvo ✅', icon: '✅', desc: 'Confirmación rápida de llegada segura' },
+    { label: 'Voy atrasada/o 🏃‍♀️', icon: '🏃‍♀️', desc: 'Aviso de retraso leve en el trayecto' },
+    { label: 'En camino a casa 🏡', icon: '🏡', desc: 'Rumbo directo a nuestro hogar' },
+    { label: 'En el trabajo o estudio 🏢', icon: '🏢', desc: 'Iniciando jornada laboral o académica' },
+    { label: 'Tengo mala señal / Poca batería 📵', icon: '📵', desc: 'Para que no te preocupes si no respondo' },
+    { label: 'Haciendo compras del hogar 🛒', icon: '🛒', desc: 'En el supermercado o almacén' },
   ];
 
-  const handleSendLocation = (customLabel?: string) => {
+  // 1. FUNCIÓN REAL: "📍 ESTOY AQUÍ" (Envía coordenada exacta GPS y actualiza estado)
+  const handleSendExactLocation = () => {
     if (!settings.locationSharingConsent) {
       alert('Debes activar el consentimiento mutuo de ubicación primero.');
       return;
     }
 
     setIsLoadingGps(true);
-    setStatusMessage('Localizando señal GPS en alta precisión...');
+    setStatusMessage('Obteniendo coordenadas GPS de alta precisión...');
 
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -58,26 +63,38 @@ export const LocationSection: React.FC = () => {
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
           };
-          const name = customLabel || `Coordenadas: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`;
+          const name = `Ubicación GPS: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`;
           updateMyLocation(coords, name);
+          updateMyStatus({ lastAction: `📍 Estoy aquí (${name})` });
           setIsLoadingGps(false);
-          setStatusMessage(`¡Ubicación enviada: "${name}"!`);
+          setStatusMessage(`¡Ubicación exacta compartida en tu estado: "${name}"!`);
           setTimeout(() => setStatusMessage(null), 4000);
         },
         () => {
           const coords = { lat: -33.4489, lng: -70.6693 };
-          const name = customLabel || 'En casa 🏡';
+          const name = 'En casa / Zona segura 🏡';
           updateMyLocation(coords, name);
+          updateMyStatus({ lastAction: `📍 Estoy aquí (${name})` });
           setIsLoadingGps(false);
-          setStatusMessage(`Ubicación enviada: "${name}"`);
+          setStatusMessage(`Ubicación enviada a tu estado: "${name}"`);
           setTimeout(() => setStatusMessage(null), 4000);
         },
         { enableHighAccuracy: true, timeout: 8000 }
       );
     } else {
       setIsLoadingGps(false);
-      setStatusMessage('Geolocalización no disponible.');
+      setStatusMessage('Geolocalización GPS no disponible en este dispositivo.');
     }
+  };
+
+  // 2. AVISOS RÁPIDOS: SOLO ENVÍAN TEXTO AL ESTADO (NO envían coordenadas GPS)
+  const handleSendQuickNotice = (presetText: string) => {
+    updateMyStatus({ lastAction: presetText });
+    try {
+      sendMessage(`📌 Aviso rápido: ${presetText}`);
+    } catch {}
+    setStatusMessage(`¡Aviso enviado a tu estado: "${presetText}"!`);
+    setTimeout(() => setStatusMessage(null), 3500);
   };
 
   const currentDisplayPartner = activeRole === 'me' ? partner : me;
@@ -88,7 +105,7 @@ export const LocationSection: React.FC = () => {
     const nextState = !settings.realTimeLocationActive;
     toggleRealTimeLocation(nextState);
     if (nextState) {
-      handleSendLocation('Ubicación en tiempo real activa 📡');
+      handleSendExactLocation();
     }
   };
 
@@ -110,19 +127,19 @@ export const LocationSection: React.FC = () => {
   const lng = partnerLoc?.lng || -70.6693;
 
   return (
-    <section className="w-full space-y-5">
-      {/* Title */}
+    <section className="w-full space-y-5 select-none">
+      {/* Title - AZUL ELÉCTRICO #1a4fff */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300 shadow-md">
-            <MapPin className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-2xl bg-[#1a4fff]/20 border border-[#1a4fff]/40 flex items-center justify-center text-blue-300 shadow-[0_0_20px_rgba(26,79,255,0.35)]">
+            <MapPin className="w-5 h-5 text-blue-400" />
           </div>
           <div>
             <h3 className="text-xl font-black text-white font-heading tracking-tight">
               Ubicación Segura & Radar en Tiempo Real
             </h3>
             <p className="text-xs text-white/60">
-              Avisos rápidos, Google Maps en vivo y privacidad mutua
+              Avisos rápidos, Google Maps en vivo y privacidad mutua elegante
             </p>
           </div>
         </div>
@@ -136,7 +153,7 @@ export const LocationSection: React.FC = () => {
               updateSettings({ locationSharingConsent: !settings.locationSharingConsent })
             }
             className={`w-10 h-6 rounded-full p-1 transition-colors cursor-pointer flex items-center ${
-              settings.locationSharingConsent ? 'bg-emerald-500 justify-end' : 'bg-white/20 justify-start'
+              settings.locationSharingConsent ? 'bg-[#1a4fff] justify-end shadow-[0_0_10px_rgba(26,79,255,0.7)]' : 'bg-white/20 justify-start'
             }`}
           >
             <div className="w-4 h-4 rounded-full bg-white shadow-sm" />
@@ -144,14 +161,14 @@ export const LocationSection: React.FC = () => {
         </div>
       </div>
 
-      <div className="glass-card p-6 border-emerald-500/20 space-y-5">
+      <div className="glass-card p-5 sm:p-6 border-[#1a4fff]/30 bg-gradient-to-br from-[#0a122e]/40 via-black/50 to-slate-900/50 space-y-5 shadow-2xl">
         {/* Toggle Transmisión en Tiempo Real */}
-        <div className="p-4 rounded-3xl bg-black/40 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="p-4 rounded-3xl bg-black/40 border border-[#1a4fff]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-inner">
           <div className="flex items-center gap-3">
             <div
-              className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl ${
+              className={`w-11 h-11 rounded-2xl flex items-center justify-center text-xl shrink-0 ${
                 settings.realTimeLocationActive
-                  ? 'bg-emerald-500 text-slate-950 animate-pulse'
+                  ? 'bg-[#1a4fff] text-white shadow-[0_0_18px_rgba(26,79,255,0.8)] animate-pulse'
                   : 'bg-white/10 text-white/50'
               }`}
             >
@@ -161,7 +178,7 @@ export const LocationSection: React.FC = () => {
               <h4 className="text-sm font-bold text-white flex items-center gap-2">
                 <span>Compartir Ubicación en Tiempo Real</span>
                 {settings.realTimeLocationActive && (
-                  <span className="text-[10px] bg-emerald-500/30 text-emerald-300 px-2 py-0.5 rounded-full font-black">
+                  <span className="text-[10px] bg-[#1a4fff]/30 text-blue-300 border border-[#1a4fff]/40 px-2 py-0.5 rounded-full font-black">
                     ACTIVO 📡
                   </span>
                 )}
@@ -175,10 +192,10 @@ export const LocationSection: React.FC = () => {
           <button
             type="button"
             onClick={handleToggleRealTime}
-            className={`px-5 py-2.5 rounded-2xl font-black text-xs cursor-pointer transition-all shadow-md active:scale-95 ${
+            className={`px-5 py-2.5 rounded-2xl font-black text-xs cursor-pointer transition-all shadow-md active:scale-95 shrink-0 ${
               settings.realTimeLocationActive
                 ? 'bg-red-500 hover:bg-red-600 text-white'
-                : 'btn-3d-olive text-white'
+                : 'bg-gradient-to-r from-[#1a4fff] to-[#0038d1] hover:from-blue-600 hover:to-blue-800 text-white shadow-[0_0_15px_rgba(26,79,255,0.5)]'
             }`}
           >
             {settings.realTimeLocationActive ? 'Desactivar Transmisión' : 'Activar Tiempo Real 📡'}
@@ -188,17 +205,17 @@ export const LocationSection: React.FC = () => {
         {/* Tarjeta de ubicación actual de la pareja */}
         <div className="p-4 rounded-3xl bg-white/5 border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-2xl">
+            <div className="w-12 h-12 rounded-2xl bg-[#1a4fff]/20 border border-[#1a4fff]/30 flex items-center justify-center text-2xl shadow-md">
               {currentDisplayPartner.avatar}
             </div>
             <div>
-              <p className="text-[10px] text-white/50 uppercase font-bold">
-                Lugar de tu pareja
+              <p className="text-[10px] text-white/50 uppercase font-bold tracking-wider">
+                Lugar de tu pareja ({currentDisplayPartner.name})
               </p>
               <h4 className="text-base font-black text-white font-heading">
                 {partnerLoc?.name || 'En casa 🏡'}
               </h4>
-              <p className="text-xs text-emerald-400 mt-0.5">
+              <p className="text-xs text-blue-400 mt-0.5 font-medium">
                 {partnerLoc?.updatedAt || 'Actualizado recientemente'}
               </p>
             </div>
@@ -209,9 +226,9 @@ export const LocationSection: React.FC = () => {
               href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
               target="_blank"
               rel="noreferrer"
-              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1.5 border border-white/10 cursor-pointer shadow-sm"
+              className="px-3.5 py-2 rounded-xl bg-[#1a4fff]/20 hover:bg-[#1a4fff]/30 text-white text-xs font-bold flex items-center gap-1.5 border border-[#1a4fff]/30 cursor-pointer shadow-sm transition-all"
             >
-              <Navigation className="w-3.5 h-3.5 text-emerald-300" />
+              <Navigation className="w-3.5 h-3.5 text-blue-300" />
               <span>Google Maps</span>
               <ExternalLink className="w-3 h-3 text-white/50" />
             </a>
@@ -219,7 +236,7 @@ export const LocationSection: React.FC = () => {
             <button
               type="button"
               onClick={handleShareOnSocial}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer transition-colors"
               title="Compartir por WhatsApp o Redes"
             >
               <Share2 className="w-4 h-4" />
@@ -229,10 +246,10 @@ export const LocationSection: React.FC = () => {
 
         {/* MINI VENTANA GOOGLE MAPS QUE SE ABRE ABAJO Y SE PUEDE EXPANDIR */}
         {settings.realTimeLocationActive && (
-          <div className="rounded-3xl overflow-hidden border-2 border-emerald-400/40 bg-black/60 shadow-2xl space-y-2 p-3">
+          <div className="rounded-3xl overflow-hidden border-2 border-[#1a4fff]/40 bg-black/60 shadow-2xl space-y-2 p-3">
             <div className="flex items-center justify-between px-2 pt-1 text-xs">
-              <span className="font-black text-emerald-300 flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+              <span className="font-black text-blue-300 flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#1a4fff] animate-ping" />
                 Mapa Satelital en Tiempo Real de tu Pareja
               </span>
               <button
@@ -260,37 +277,59 @@ export const LocationSection: React.FC = () => {
         )}
 
         {statusMessage && (
-          <div className="p-3 rounded-2xl bg-emerald-950/70 border border-emerald-400/40 text-emerald-200 text-xs text-center font-bold">
+          <div className="p-3 rounded-2xl bg-[#1a4fff]/20 border border-[#1a4fff]/40 text-blue-200 text-xs text-center font-bold shadow-md">
             {statusMessage}
           </div>
         )}
 
-        {/* Botón: 📍 Estoy aquí */}
+        {/* Botón Principal: 📍 Estoy aquí (Envía coordenada exacta y actualiza estado) */}
         <button
           type="button"
-          onClick={() => handleSendLocation()}
+          onClick={handleSendExactLocation}
           disabled={isLoadingGps}
-          className="w-full py-4 rounded-3xl btn-3d-olive text-white font-black text-sm flex items-center justify-center gap-2 cursor-pointer shadow-xl disabled:opacity-50"
+          className="w-full py-4 rounded-3xl bg-gradient-to-r from-[#1a4fff] via-[#003be3] to-[#00259e] hover:from-blue-600 hover:to-blue-800 text-white font-black text-sm flex items-center justify-center gap-2 cursor-pointer shadow-[0_8px_25px_rgba(26,79,255,0.45)] border border-[#1a4fff]/40 active:scale-98 transition-all disabled:opacity-50"
         >
-          <MapPin className="w-5 h-5 text-lime-200 animate-bounce" />
-          <span>{isLoadingGps ? 'Obteniendo GPS...' : '📍 Estoy aquí (Enviar coordenada exacta)'}</span>
+          <MapPin className="w-5 h-5 text-blue-200 animate-bounce" />
+          <span>{isLoadingGps ? 'Obteniendo GPS de alta precisión...' : '📍 Estoy aquí (Enviar ubicación exacta a mi estado)'}</span>
         </button>
 
-        {/* Avisos Rápidos */}
-        <div>
-          <p className="text-xs font-bold text-white/70 uppercase tracking-wider mb-2.5">
-            Avisos Rápidos de 1 toque:
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+        {/* Avisos Rápidos en LISTA VERTICAL HACIA ABAJO (NO envían ubicación, solo aviso de estado) */}
+        <div className="space-y-3 pt-2 border-t border-white/10">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-white/80 uppercase tracking-wider flex items-center gap-1.5">
+              <span>💬</span>
+              <span>Avisos Rápidos de Estado (Sin GPS):</span>
+            </p>
+            <span className="text-[10px] text-white/50">Toca para actualizar tu estado</span>
+          </div>
+
+          {/* LISTA HACIA ABAJO VERTICAL (Sin cortes ni columnas apretadas) */}
+          <div className="flex flex-col gap-2.5 w-full">
             {PRESETS.map((p) => (
               <button
                 key={p.label}
                 type="button"
-                onClick={() => handleSendLocation(p.label)}
-                className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 text-left flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+                onClick={() => handleSendQuickNotice(p.label)}
+                className="w-full p-3.5 rounded-2xl bg-white/5 hover:bg-white/10 active:scale-98 border border-white/10 text-left flex items-center justify-between gap-3 transition-all cursor-pointer shadow-sm group"
               >
-                <span className="text-2xl">{p.icon}</span>
-                <span className="text-xs font-bold text-white truncate">{p.label}</span>
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="text-2xl shrink-0 group-hover:scale-110 transition-transform">
+                    {p.icon}
+                  </span>
+                  <div className="min-w-0">
+                    <span className="text-xs sm:text-sm font-bold text-white block group-hover:text-blue-300 transition-colors">
+                      {p.label}
+                    </span>
+                    <span className="text-[10px] text-white/50 block truncate">
+                      {p.desc}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="px-3 py-1 rounded-xl bg-white/10 group-hover:bg-[#1a4fff]/30 group-hover:text-blue-200 text-white/70 text-[11px] font-bold flex items-center gap-1 shrink-0 transition-all">
+                  <Send className="w-3 h-3" />
+                  <span>Avisar</span>
+                </div>
               </button>
             ))}
           </div>
@@ -302,11 +341,11 @@ export const LocationSection: React.FC = () => {
         isOpen={isMapExpanded}
         onClose={() => setIsMapExpanded(false)}
         title="Ubicación en Tiempo Real (Vista Grande)"
-        icon={<MapPin className="w-6 h-6 text-emerald-400" />}
+        icon={<MapPin className="w-6 h-6 text-[#1a4fff]" />}
         maxWidth="max-w-4xl"
       >
         <div className="space-y-4">
-          <div className="aspect-video w-full rounded-3xl overflow-hidden border border-white/20 bg-black">
+          <div className="aspect-video w-full rounded-3xl overflow-hidden border border-white/20 bg-black shadow-2xl">
             <iframe
               title="Google Maps Grande"
               src={`https://maps.google.com/maps?q=${lat},${lng}&z=16&output=embed`}
@@ -319,7 +358,7 @@ export const LocationSection: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsMapExpanded(false)}
-              className="px-5 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold cursor-pointer"
+              className="px-5 py-2 rounded-xl bg-[#1a4fff] hover:bg-blue-600 text-white font-bold cursor-pointer transition-colors shadow-md"
             >
               Cerrar Vista Grande
             </button>

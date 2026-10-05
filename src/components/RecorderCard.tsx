@@ -426,47 +426,73 @@ export const RecorderCard: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
-              <button
-                type="button"
-                onClick={() => handleStartRecording('normal')}
-                className="p-5 rounded-3xl bg-gradient-to-br from-[#3f6212]/30 via-black/40 to-slate-900 border-2 border-lime-500/40 hover:border-lime-400 text-left cursor-pointer transition-all hover:scale-[1.02] shadow-lg group"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="w-10 h-10 rounded-2xl bg-lime-500/20 text-lime-300 flex items-center justify-center font-bold">
-                    <Mic className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              {/* Grabación Normal con Icono Rojo Grande y Animación Pulse */}
+              <div className="p-5 rounded-3xl bg-gradient-to-br from-[#3f6212]/30 via-black/40 to-slate-900 border-2 border-lime-500/40 hover:border-lime-400 transition-all shadow-lg flex flex-col justify-between gap-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-lime-500/20 text-lime-300 flex items-center justify-center font-bold">
+                      <Mic className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-white">Grabar Audio Normal</h4>
+                      <span className="text-[10px] uppercase font-bold text-lime-400">Nota Privada</span>
+                    </div>
                   </div>
                   <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-md bg-lime-400/20 text-lime-300">
                     Normal
                   </span>
                 </div>
-                <h4 className="text-sm font-black text-white group-hover:text-lime-200">
-                  Grabar Audio Normal
-                </h4>
-                <p className="text-xs text-white/60 mt-1 leading-relaxed">
+
+                <p className="text-xs text-white/60 leading-relaxed">
                   Graba notas personales en alta calidad con nombre alfanumérico por fecha y hora.
                 </p>
-              </button>
 
-              <button
-                type="button"
-                onClick={() => handleStartRecording('live_shared')}
-                className="p-5 rounded-3xl bg-gradient-to-br from-rose-950/40 via-black/40 to-slate-900 border-2 border-rose-500/40 hover:border-rose-400 text-left cursor-pointer transition-all hover:scale-[1.02] shadow-lg group"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-300 flex items-center justify-center font-bold">
-                    <Radio className="w-5 h-5 group-hover:scale-110 transition-transform animate-pulse" />
+                {/* Botón rojo grande con animación pulse para iniciar grabación */}
+                <button
+                  type="button"
+                  onClick={() => handleStartRecording('normal')}
+                  className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 active:scale-95 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 cursor-pointer shadow-[0_0_20px_rgba(239,68,68,0.5)] border border-red-400/50 transition-all group"
+                >
+                  <span className="w-3.5 h-3.5 rounded-full bg-white border-2 border-red-600 animate-pulse shrink-0 flex items-center justify-center">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
+                  </span>
+                  <span>🔴 Iniciar Grabación Normal</span>
+                </button>
+              </div>
+
+              {/* Audio Compartido en Directo con Icono Rojo Grande y Animación Pulse */}
+              <div className="p-5 rounded-3xl bg-gradient-to-br from-rose-950/40 via-black/40 to-slate-900 border-2 border-rose-500/40 hover:border-rose-400 transition-all shadow-lg flex flex-col justify-between gap-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-300 flex items-center justify-center font-bold">
+                      <Radio className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-white">Audio Compartido 📡❤</h4>
+                      <span className="text-[10px] uppercase font-bold text-rose-300">En Directo a Pareja</span>
+                    </div>
                   </div>
                   <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-md bg-rose-400/20 text-rose-300">
                     Compartido ❤
                   </span>
                 </div>
-                <h4 className="text-sm font-black text-white group-hover:text-rose-200">
-                  Audio Compartido en Directo
-                </h4>
-                <p className="text-xs text-white/60 mt-1 leading-relaxed">
+
+                <p className="text-xs text-white/60 leading-relaxed">
                   Transmite a tu pareja en vivo y se envía automáticamente al Mini Chat de la app.
                 </p>
-              </button>
+
+                {/* Botón rojo grande con animación pulse para iniciar transmisión compartida */}
+                <button
+                  type="button"
+                  onClick={() => handleStartRecording('live_shared')}
+                  className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-rose-600 via-red-600 to-pink-700 hover:from-rose-500 hover:to-red-500 active:scale-95 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 cursor-pointer shadow-[0_0_20px_rgba(244,63,94,0.5)] border border-rose-400/50 transition-all group"
+                >
+                  <span className="w-3.5 h-3.5 rounded-full bg-white border-2 border-rose-600 animate-pulse shrink-0 flex items-center justify-center">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
+                  </span>
+                  <span>🔴 Iniciar Audio Compartido 📡❤</span>
+                </button>
+              </div>
             </div>
           )}
         </div>

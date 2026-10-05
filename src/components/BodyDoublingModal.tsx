@@ -18,14 +18,25 @@ import {
   Tv,
   Search,
   RotateCcw,
+  RotateCw,
   Repeat,
   Radio,
   Sparkles,
   Smartphone,
+  Shuffle,
+  RefreshCw,
   X
 } from 'lucide-react';
 import { ModalPortal } from './ModalPortal';
 import { useApp } from '../context/AppContext';
+import { searchYouTube, YouTubeItem } from '../utils/youtubeApi';
+import {
+  saveMultipleVlcTracks,
+  getStoredVlcTracks,
+  deleteStoredVlcTrack,
+  clearAllStoredVlcTracks,
+  StoredVlcTrack,
+} from '../utils/vlcStorage';
 
 export interface MusicTrack {
   id: string;
@@ -280,6 +291,7 @@ interface CachedVlcTrack {
   name: string;
   sizeStr: string;
   dataUrl?: string;
+  blob?: Blob;
 }
 
 export interface BodyDoublingModalProps {
@@ -310,6 +322,7 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
   const [ytmSearchQuery, setYtmSearchQuery] = useState('');
   const [ytmSearchResults, setYtmSearchResults] = useState<MusicTrack[]>([]);
   const [hasSearchedYtm, setHasSearchedYtm] = useState(false);
+  const [isSearchingYtm, setIsSearchingYtm] = useState(false);
 
   // Playback timeline & controls
   const [currentTimeSecs, setCurrentTimeSecs] = useState(45);
@@ -320,31 +333,55 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
 
   // YouTube Video Normal State
   const [activeVideo, setActiveVideo] = useState<VideoItem>(POPULAR_VIDEOS_CATALOG[0]);
+  const [isPlayingYtn, setIsPlayingYtn] = useState(false);
   const [ytnSearchInput, setYtnSearchInput] = useState('');
   const [ytnSearchResults, setYtnSearchResults] = useState<VideoItem[]>([]);
   const [hasSearchedYtn, setHasSearchedYtn] = useState(false);
+  const [isSearchingYtn, setIsSearchingYtn] = useState(false);
 
-  // VLC MP3 Local State
-  const [vlcTracks, setVlcTracks] = useState<CachedVlcTrack[]>(() => {
-    try {
-      const saved = localStorage.getItem('happyduo_vlc_mp3_cache');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // VLC MP3 Local State con persistencia IndexedDB
+  const [vlcTracks, setVlcTracks] = useState<CachedVlcTrack[]>([]);
   const [activeVlcTrack, setActiveVlcTrack] = useState<CachedVlcTrack | null>(null);
   const [isPlayingVlc, setIsPlayingVlc] = useState(false);
   const [vlcProgress, setVlcProgress] = useState(0);
   const [vlcDuration, setVlcDuration] = useState(0);
+  const [isVlcShuffle, setIsVlcShuffle] = useState(false);
+  const [vlcRepeatMode, setVlcRepeatMode] = useState<'off' | 'all' | 'one'>('all');
+  const [vlcVolume, setVlcVolume] = useState(1);
+  const [isVlcMuted, setIsVlcMuted] = useState(false);
   const [ignoredFilesNotice, setIgnoredFilesNotice] = useState<string | null>(null);
 
   const localAudioRef = useRef<HTMLAudioElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Cargar canciones almacenadas en IndexedDB al iniciar la aplicación
+  useEffect(() => {
+    let isMounted = true;
+    getStoredVlcTracks().then((stored) => {
+      if (!isMounted || !stored || stored.length === 0) return;
+      const loaded: CachedVlcTrack[] = stored.map((s) => ({
+        id: s.id,
+        name: s.name,
+        sizeStr: s.sizeStr,
+        dataUrl: URL.createObjectURL(s.blob),
+        blob: s.blob,
+      }));
+      setVlcTracks(loaded);
+      if (loaded.length > 0) {
+        setActiveVlcTrack((prev) => prev || loaded[0]);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Sincronización con el Teléfono a través del estándar MediaSession de Android / iOS
-  const syncWithPhoneMediaSession = (track: { title: string; artist: string; albumArt?: string }, playing: boolean) => {
+  const syncWithPhoneMediaSession = (
+    track: { title: string; artist: string; albumArt?: string },
+    playing: boolean
+  ) => {
     if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
       try {
         navigator.mediaSession.metadata = new MediaMetadata({
@@ -392,7 +429,7 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
           handleNextTrack();
         });
       } catch {
-        // En caso de que el navegador tenga restricciones sandbox
+        // Sandbox fallback
       }
     }
   };
@@ -424,9 +461,9 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
     }
   }, [activeTrack, isPlayingYtm, activeTab]);
 
-  // Búsqueda inteligente en YouTube Music con despliegue de lista inmediata
-  const executeYtmSearch = (queryStr: string) => {
-    const q = queryStr.trim().toLowerCase();
+  // Búsqueda real en YouTube Music con YouTube Data API v3 y fallback verificado
+  const executeYtmSearch = async (queryStr: string) => {
+    const q = queryStr.trim();
     if (!q) {
       setYtmSearchResults([]);
       setHasSearchedYtm(false);
@@ -434,57 +471,25 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
     }
 
     setHasSearchedYtm(true);
+    setIsSearchingYtm(true);
 
-    // 1. Filtrar catálogo curado existente
-    const catalogMatches = POPULAR_MUSIC_CATALOG.filter(
-      (t) =>
-        t.title.toLowerCase().includes(q) ||
-        t.artist.toLowerCase().includes(q) ||
-        (t.genre && t.genre.toLowerCase().includes(q)) ||
-        (t.lyrics && t.lyrics.toLowerCase().includes(q))
-    );
-
-    // 2. Si no hay suficientes coincidencias directas, generar resultados dinámicos acordes para esa búsqueda
-    let results: MusicTrack[] = [...catalogMatches];
-
-    if (results.length < 3) {
-      // Generar resultados dinámicos con formato de canción para el término buscado
-      const dynamicResults: MusicTrack[] = [
-        {
-          id: `search_res_1_${Date.now()}`,
-          title: `${queryStr} (Original Audio)`,
-          artist: queryStr.includes('-') ? queryStr.split('-')[0].trim() : queryStr,
-          ytId: 'jfKfPfyJRdk', // Embed compatible con listType=search
-          duration: '3:30',
-          genre: 'Búsqueda en YouTube Music',
-          albumArt: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=60',
-          lyrics: `Reproduciendo "${queryStr}" sincronizado con tu teléfono.`,
-        },
-        {
-          id: `search_res_2_${Date.now()}`,
-          title: `${queryStr} (En Vivo / Live)`,
-          artist: queryStr,
-          ytId: '5qap5aO4i9A',
-          duration: '4:15',
-          genre: 'En Concierto',
-          albumArt: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&auto=format&fit=crop&q=60',
-          lyrics: `Versión acústica en vivo de "${queryStr}".`,
-        },
-        {
-          id: `search_res_3_${Date.now()}`,
-          title: `${queryStr} (Remix & Chill)`,
-          artist: queryStr,
-          ytId: '3u-4fx4w7iI',
-          duration: '3:50',
-          genre: 'Chill / Relax',
-          albumArt: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=60',
-          lyrics: `Versión relajante para disfrutar en el teléfono.`,
-        },
-      ];
-      results = [...results, ...dynamicResults];
+    try {
+      const results = await searchYouTube(q, 'YouTube Music');
+      const mapped: MusicTrack[] = results.map((r) => ({
+        id: r.id,
+        title: r.title,
+        artist: r.channel,
+        ytId: r.ytId,
+        albumArt: r.thumbnail,
+        duration: r.duration,
+        genre: r.genre || 'YouTube Music',
+      }));
+      setYtmSearchResults(mapped);
+    } catch (err) {
+      console.warn('Error en búsqueda de YouTube Music:', err);
+    } finally {
+      setIsSearchingYtm(false);
     }
-
-    setYtmSearchResults(results);
   };
 
   const handleYtmSearchSubmit = (e: React.FormEvent) => {
@@ -492,7 +497,7 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
     executeYtmSearch(ytmSearchQuery);
   };
 
-  // Seleccionar canción de la lista de resultados
+  // Seleccionar canción de la lista de resultados de YouTube Music
   const handleSelectYtmTrack = (track: MusicTrack) => {
     setActiveTrack(track);
     setIsPlayingYtm(true);
@@ -510,17 +515,19 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
     syncWithPhoneMediaSession(track, true);
   };
 
-  // Controles de siguiente y anterior
+  // Controles de siguiente y anterior para YouTube Music
   const handleNextTrack = () => {
-    const currentIdx = POPULAR_MUSIC_CATALOG.findIndex((t) => t.id === activeTrack.id);
-    const nextIdx = (currentIdx + 1) % POPULAR_MUSIC_CATALOG.length;
-    handleSelectYtmTrack(POPULAR_MUSIC_CATALOG[nextIdx]);
+    const sourceList = ytmSearchResults.length > 0 ? ytmSearchResults : POPULAR_MUSIC_CATALOG;
+    const currentIdx = sourceList.findIndex((t) => t.id === activeTrack.id);
+    const nextIdx = (currentIdx + 1) % sourceList.length;
+    handleSelectYtmTrack(sourceList[nextIdx]);
   };
 
   const handlePrevTrack = () => {
-    const currentIdx = POPULAR_MUSIC_CATALOG.findIndex((t) => t.id === activeTrack.id);
-    const prevIdx = (currentIdx - 1 + POPULAR_MUSIC_CATALOG.length) % POPULAR_MUSIC_CATALOG.length;
-    handleSelectYtmTrack(POPULAR_MUSIC_CATALOG[prevIdx]);
+    const sourceList = ytmSearchResults.length > 0 ? ytmSearchResults : POPULAR_MUSIC_CATALOG;
+    const currentIdx = sourceList.findIndex((t) => t.id === activeTrack.id);
+    const prevIdx = (currentIdx - 1 + sourceList.length) % sourceList.length;
+    handleSelectYtmTrack(sourceList[prevIdx]);
   };
 
   const handleRestartTrack = () => {
@@ -541,9 +548,9 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
     syncWithPhoneMediaSession(activeTrack, nextState);
   };
 
-  // Búsqueda inteligente en YouTube Normal Video
-  const executeYtnSearch = (queryStr: string) => {
-    const q = queryStr.trim().toLowerCase();
+  // Búsqueda real en YouTube Normal Video con YouTube Data API v3
+  const executeYtnSearch = async (queryStr: string) => {
+    const q = queryStr.trim();
     if (!q) {
       setYtnSearchResults([]);
       setHasSearchedYtn(false);
@@ -551,49 +558,24 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
     }
 
     setHasSearchedYtn(true);
+    setIsSearchingYtn(true);
 
-    // Extraer ID si es URL directa de YouTube
-    const urlMatch = queryStr.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
-    if (urlMatch && urlMatch[1]) {
-      const directVideo: VideoItem = {
-        id: `direct_${urlMatch[1]}`,
-        title: 'Video de enlace cargado',
-        channel: 'YouTube Video',
-        ytId: urlMatch[1],
-        thumbnail: `https://img.youtube.com/vi/${urlMatch[1]}/hqdefault.jpg`,
-      };
-      setYtnSearchResults([directVideo]);
-      setActiveVideo(directVideo);
-      return;
+    try {
+      const results = await searchYouTube(q, 'YouTube');
+      const mapped: VideoItem[] = results.map((r) => ({
+        id: r.id,
+        title: r.title,
+        channel: r.channel,
+        ytId: r.ytId,
+        thumbnail: r.thumbnail,
+        duration: r.duration,
+      }));
+      setYtnSearchResults(mapped);
+    } catch (err) {
+      console.warn('Error en búsqueda de YouTube Video:', err);
+    } finally {
+      setIsSearchingYtn(false);
     }
-
-    const matches = POPULAR_VIDEOS_CATALOG.filter(
-      (v) => v.title.toLowerCase().includes(q) || v.channel.toLowerCase().includes(q)
-    );
-
-    let results: VideoItem[] = [...matches];
-    if (results.length < 2) {
-      results.push(
-        {
-          id: `vid_search_1_${Date.now()}`,
-          title: `${queryStr} - Video Oficial`,
-          channel: 'YouTube Canal',
-          ytId: 'e2s36_c0Fys',
-          duration: '15:20',
-          thumbnail: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=500&auto=format&fit=crop&q=60',
-        },
-        {
-          id: `vid_search_2_${Date.now()}`,
-          title: `${queryStr} - Documental / Especial 4K`,
-          channel: 'Ambience 4K',
-          ytId: 'Nep1qytq9JM',
-          duration: '45:00',
-          thumbnail: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=60',
-        }
-      );
-    }
-
-    setYtnSearchResults(results);
   };
 
   const handleYtnSearchSubmit = (e: React.FormEvent) => {
@@ -603,19 +585,123 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
 
   const handleSelectYtnVideo = (video: VideoItem) => {
     setActiveVideo(video);
+    setIsPlayingYtn(true);
+    updateMyCurrentTrack({
+      title: video.title,
+      artist: video.channel,
+      source: 'YouTube',
+      isPlaying: true,
+      albumArt: video.thumbnail,
+    });
+    syncWithPhoneMediaSession(
+      {
+        title: video.title,
+        artist: video.channel,
+        albumArt: video.thumbnail,
+      },
+      true
+    );
   };
 
-  // Manejo de VLC MP3 Local estricto
-  const handleScanPhoneMp3Only = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Sincronización MediaSession API para VLC MP3 Local en Android
+  const syncVlcMediaSession = (track: CachedVlcTrack | null, playing: boolean) => {
+    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator && track) {
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: track.name,
+          artist: 'Reproductor VLC Duo',
+          album: 'Música MP3 Local',
+          artwork: [
+            {
+              src: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=60',
+              sizes: '512x512',
+              type: 'image/jpeg',
+            },
+          ],
+        });
+
+        navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+
+        navigator.mediaSession.setActionHandler('play', () => {
+          if (localAudioRef.current) {
+            localAudioRef.current.play();
+            setIsPlayingVlc(true);
+            updateMyCurrentTrack({
+              title: track.name,
+              artist: 'VLC Duo MP3 Local',
+              source: 'MP3 Local',
+              isPlaying: true,
+            });
+          }
+        });
+
+        navigator.mediaSession.setActionHandler('pause', () => {
+          if (localAudioRef.current) {
+            localAudioRef.current.pause();
+            setIsPlayingVlc(false);
+            updateMyCurrentTrack({
+              title: track.name,
+              artist: 'VLC Duo MP3 Local',
+              source: 'MP3 Local',
+              isPlaying: false,
+            });
+          }
+        });
+
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+          handlePrevVlcTrack();
+        });
+
+        navigator.mediaSession.setActionHandler('nexttrack', () => {
+          handleNextVlcTrack();
+        });
+
+        navigator.mediaSession.setActionHandler('seekforward', (details) => {
+          if (localAudioRef.current) {
+            const skip = details.seekOffset || 10;
+            localAudioRef.current.currentTime = Math.min(
+              localAudioRef.current.duration || 1000,
+              localAudioRef.current.currentTime + skip
+            );
+          }
+        });
+
+        navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+          if (localAudioRef.current) {
+            const skip = details.seekOffset || 10;
+            localAudioRef.current.currentTime = Math.max(
+              0,
+              localAudioRef.current.currentTime - skip
+            );
+          }
+        });
+
+        navigator.mediaSession.setActionHandler('seekto', (details) => {
+          if (localAudioRef.current && details.seekTime !== undefined) {
+            localAudioRef.current.currentTime = details.seekTime;
+          }
+        });
+      } catch {
+        // sandbox notice
+      }
+    }
+  };
+
+  // Manejo de VLC MP3 Local estricto con almacenamiento en IndexedDB
+  const handleScanPhoneMp3Only = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     const newTracks: CachedVlcTrack[] = [];
+    const toStore: Array<{ id: string; name: string; sizeStr: string; blob: Blob }> = [];
     let ignoredCount = 0;
 
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
-      const isMp3 = f.name.toLowerCase().endsWith('.mp3') || f.type === 'audio/mpeg';
+      const isMp3 =
+        f.name.toLowerCase().endsWith('.mp3') ||
+        f.type === 'audio/mpeg' ||
+        f.type === 'audio/mp3';
 
       if (!isMp3) {
         ignoredCount++;
@@ -624,31 +710,45 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
 
       const url = URL.createObjectURL(f);
       const sizeStr = `${(f.size / (1024 * 1024)).toFixed(1)} MB`;
+      const id = `mp3_${Date.now()}_${i}`;
+      const cleanName = f.name.replace(/\.[^/.]+$/, '');
+
       newTracks.push({
-        id: `mp3_${Date.now()}_${i}`,
-        name: f.name.replace(/\.[^/.]+$/, ''),
+        id,
+        name: cleanName,
         sizeStr,
         dataUrl: url,
+        blob: f,
+      });
+
+      toStore.push({
+        id,
+        name: cleanName,
+        sizeStr,
+        blob: f,
       });
     }
 
     if (ignoredCount > 0) {
       setIgnoredFilesNotice(
-        `Se filtraron ${ignoredCount} archivos no-MP3 para mantener tu lista musical pura.`
+        `Se filtraron ${ignoredCount} archivos no-MP3 para mantener tu biblioteca musical pura.`
       );
       setTimeout(() => setIgnoredFilesNotice(null), 5000);
     }
 
-    setVlcTracks((prev) => [...newTracks, ...prev]);
     if (newTracks.length > 0) {
+      // Guardar en IndexedDB para persistencia permanente al recargar
+      await saveMultipleVlcTracks(toStore);
+      setVlcTracks((prev) => [...newTracks, ...prev]);
       setActiveVlcTrack(newTracks[0]);
       setIsPlayingVlc(true);
       updateMyCurrentTrack({
         title: newTracks[0].name,
-        artist: 'MP3 Local del Teléfono',
+        artist: 'VLC Duo MP3 Local',
         source: 'MP3 Local',
         isPlaying: true,
       });
+      syncVlcMediaSession(newTracks[0], true);
     }
   };
 
@@ -660,19 +760,21 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
           setIsPlayingVlc(false);
           updateMyCurrentTrack({
             title: track.name,
-            artist: 'MP3 Local',
+            artist: 'VLC Duo MP3 Local',
             source: 'MP3 Local',
             isPlaying: false,
           });
+          syncVlcMediaSession(track, false);
         } else {
           localAudioRef.current.play();
           setIsPlayingVlc(true);
           updateMyCurrentTrack({
             title: track.name,
-            artist: 'MP3 Local',
+            artist: 'VLC Duo MP3 Local',
             source: 'MP3 Local',
             isPlaying: true,
           });
+          syncVlcMediaSession(track, true);
         }
       }
     } else {
@@ -680,10 +782,104 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
       setIsPlayingVlc(true);
       updateMyCurrentTrack({
         title: track.name,
-        artist: 'MP3 Local',
+        artist: 'VLC Duo MP3 Local',
         source: 'MP3 Local',
         isPlaying: true,
       });
+      syncVlcMediaSession(track, true);
+    }
+  };
+
+  // Controles VLC: Siguiente, Anterior, Adelantar 10s, Retroceder 10s, Seek y Volumen
+  const handleNextVlcTrack = () => {
+    if (vlcTracks.length === 0) return;
+    const currentIdx = vlcTracks.findIndex((t) => t.id === activeVlcTrack?.id);
+    let nextIdx = (currentIdx + 1) % vlcTracks.length;
+
+    if (isVlcShuffle && vlcTracks.length > 1) {
+      do {
+        nextIdx = Math.floor(Math.random() * vlcTracks.length);
+      } while (nextIdx === currentIdx);
+    }
+
+    const nextTrack = vlcTracks[nextIdx];
+    setActiveVlcTrack(nextTrack);
+    setIsPlayingVlc(true);
+    updateMyCurrentTrack({
+      title: nextTrack.name,
+      artist: 'VLC Duo MP3 Local',
+      source: 'MP3 Local',
+      isPlaying: true,
+    });
+    syncVlcMediaSession(nextTrack, true);
+  };
+
+  const handlePrevVlcTrack = () => {
+    if (vlcTracks.length === 0) return;
+    if (localAudioRef.current && localAudioRef.current.currentTime > 3) {
+      localAudioRef.current.currentTime = 0;
+      return;
+    }
+    const currentIdx = vlcTracks.findIndex((t) => t.id === activeVlcTrack?.id);
+    const prevIdx = (currentIdx - 1 + vlcTracks.length) % vlcTracks.length;
+    const prevTrack = vlcTracks[prevIdx];
+    setActiveVlcTrack(prevTrack);
+    setIsPlayingVlc(true);
+    updateMyCurrentTrack({
+      title: prevTrack.name,
+      artist: 'VLC Duo MP3 Local',
+      source: 'MP3 Local',
+      isPlaying: true,
+    });
+    syncVlcMediaSession(prevTrack, true);
+  };
+
+  const handleVlcSeek = (time: number) => {
+    setVlcProgress(time);
+    if (localAudioRef.current) {
+      localAudioRef.current.currentTime = time;
+    }
+  };
+
+  const handleVlcForward10 = () => {
+    if (localAudioRef.current) {
+      const targetTime = Math.min(vlcDuration, localAudioRef.current.currentTime + 10);
+      localAudioRef.current.currentTime = targetTime;
+      setVlcProgress(targetTime);
+    }
+  };
+
+  const handleVlcRewind10 = () => {
+    if (localAudioRef.current) {
+      const targetTime = Math.max(0, localAudioRef.current.currentTime - 10);
+      localAudioRef.current.currentTime = targetTime;
+      setVlcProgress(targetTime);
+    }
+  };
+
+  const handleVlcVolumeChange = (vol: number) => {
+    setVlcVolume(vol);
+    if (localAudioRef.current) {
+      localAudioRef.current.volume = vol;
+      localAudioRef.current.muted = vol === 0;
+    }
+    setIsVlcMuted(vol === 0);
+  };
+
+  const toggleVlcMute = () => {
+    if (localAudioRef.current) {
+      const nextMuted = !isVlcMuted;
+      setIsVlcMuted(nextMuted);
+      localAudioRef.current.muted = nextMuted;
+    }
+  };
+
+  const onVlcEnded = () => {
+    if (vlcRepeatMode === 'one' && localAudioRef.current) {
+      localAudioRef.current.currentTime = 0;
+      localAudioRef.current.play();
+    } else {
+      handleNextVlcTrack();
     }
   };
 
@@ -827,9 +1023,20 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
                   </div>
                   <button
                     type="submit"
-                    className="px-4 py-2.5 rounded-2xl btn-3d-rose text-white text-xs font-bold cursor-pointer shrink-0 flex items-center gap-1.5"
+                    disabled={isSearchingYtm}
+                    className="px-4 py-2.5 rounded-2xl btn-3d-rose text-white text-xs font-bold cursor-pointer shrink-0 flex items-center gap-1.5 disabled:opacity-50"
                   >
-                    <span>Buscar</span>
+                    {isSearchingYtm ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Buscando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Search className="w-3.5 h-3.5" />
+                        <span>Buscar</span>
+                      </>
+                    )}
                   </button>
                 </form>
 
@@ -843,7 +1050,7 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
                     <div className="flex items-center justify-between pb-1 border-b border-white/10">
                       <span className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
                         <Search className="w-3.5 h-3.5 text-rose-400" />
-                        <span>Resultados encontrados ({ytmSearchResults.length}):</span>
+                        <span>Resultados de YouTube Music ({ytmSearchResults.length}):</span>
                       </span>
                       <button
                         type="button"
@@ -859,15 +1066,13 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">
                       {ytmSearchResults.map((track) => {
                         const isCurrent = activeTrack.id === track.id;
                         return (
-                          <button
+                          <div
                             key={track.id}
-                            type="button"
-                            onClick={() => handleSelectYtmTrack(track)}
-                            className={`p-2.5 rounded-xl border flex items-center justify-between gap-2.5 text-left transition-all cursor-pointer group ${
+                            className={`p-2.5 rounded-xl border flex items-center justify-between gap-2.5 text-left transition-all group ${
                               isCurrent
                                 ? 'bg-rose-500/30 border-rose-400 shadow-md ring-1 ring-rose-400/50'
                                 : 'bg-white/5 hover:bg-rose-500/15 border-white/10 hover:border-rose-400/30'
@@ -877,7 +1082,7 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
                               <img
                                 src={track.albumArt}
                                 alt={track.title}
-                                className="w-10 h-10 rounded-lg object-cover shrink-0 shadow-sm"
+                                className="w-11 h-11 rounded-lg object-cover shrink-0 shadow-sm"
                               />
                               <div className="min-w-0">
                                 <p className="text-xs font-bold text-white truncate group-hover:text-rose-200">
@@ -886,19 +1091,28 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
                                 <p className="text-[10px] text-white/60 truncate">
                                   {track.artist}
                                 </p>
-                                {track.genre && (
-                                  <span className="text-[9px] text-rose-300/80 font-medium">
-                                    {track.genre}
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-white/10 text-white/70 font-mono">
+                                    ⏱️ {track.duration || '3:30'}
                                   </span>
-                                )}
+                                  {track.genre && (
+                                    <span className="text-[9px] text-rose-300/80 font-medium truncate">
+                                      {track.genre}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
 
-                            <span className="px-2.5 py-1 rounded-lg bg-rose-500/30 text-rose-200 text-[10px] font-black group-hover:bg-rose-500 group-hover:text-white shrink-0 flex items-center gap-1 transition-colors">
+                            <button
+                              type="button"
+                              onClick={() => handleSelectYtmTrack(track)}
+                              className="px-3 py-1.5 rounded-lg bg-rose-500 hover:bg-rose-400 active:scale-95 text-white text-[10px] font-black shrink-0 flex items-center gap-1 transition-all cursor-pointer shadow-md"
+                            >
                               <Play className="w-3 h-3 fill-current" />
                               <span>{isCurrent && isPlayingYtm ? 'Sonando' : 'Elegir'}</span>
-                            </span>
-                          </button>
+                            </button>
+                          </div>
                         );
                       })}
                     </div>
@@ -1078,7 +1292,7 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
               <div className="rounded-2xl overflow-hidden aspect-video max-h-52 bg-black border border-white/10 shadow-xl">
                 <iframe
                   title={activeTrack.title}
-                  src={`https://www.youtube.com/embed/${activeTrack.ytId}?autoplay=${
+                  src={`https://www.youtube-nocookie.com/embed/${activeTrack.ytId}?autoplay=${
                     isPlayingYtm ? 1 : 0
                   }&playsinline=1&enablejsapi=1`}
                   className="w-full h-full border-0"
@@ -1179,9 +1393,20 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
                   </div>
                   <button
                     type="submit"
-                    className="px-4 py-2.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs cursor-pointer shadow-md shrink-0 flex items-center gap-1.5"
+                    disabled={isSearchingYtn}
+                    className="px-4 py-2.5 rounded-2xl bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold text-xs cursor-pointer shadow-md shrink-0 flex items-center gap-1.5"
                   >
-                    <span>Buscar Video</span>
+                    {isSearchingYtn ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Buscando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Search className="w-3.5 h-3.5" />
+                        <span>Buscar Video</span>
+                      </>
+                    )}
                   </button>
                 </form>
 
@@ -1211,15 +1436,13 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">
                       {ytnSearchResults.map((video) => {
                         const isCurrent = activeVideo.id === video.id;
                         return (
-                          <button
+                          <div
                             key={video.id}
-                            type="button"
-                            onClick={() => handleSelectYtnVideo(video)}
-                            className={`p-2.5 rounded-xl border flex items-center justify-between gap-2.5 text-left transition-all cursor-pointer group ${
+                            className={`p-2.5 rounded-xl border flex items-center justify-between gap-2.5 text-left transition-all group ${
                               isCurrent
                                 ? 'bg-red-600/30 border-red-400 shadow-md ring-1 ring-red-400/50'
                                 : 'bg-white/5 hover:bg-red-600/15 border-white/10 hover:border-red-400/30'
@@ -1229,7 +1452,7 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
                               <img
                                 src={video.thumbnail}
                                 alt={video.title}
-                                className="w-14 h-10 rounded-lg object-cover shrink-0"
+                                className="w-14 h-10 rounded-lg object-cover shrink-0 shadow-sm"
                               />
                               <div className="min-w-0">
                                 <p className="text-xs font-bold text-white truncate group-hover:text-red-200">
@@ -1238,14 +1461,21 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
                                 <p className="text-[10px] text-white/60 truncate">
                                   {video.channel}
                                 </p>
+                                <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-white/10 text-white/70 font-mono mt-0.5 inline-block">
+                                  ⏱️ {video.duration || 'Reproduciendo'}
+                                </span>
                               </div>
                             </div>
 
-                            <span className="px-2.5 py-1 rounded-lg bg-red-600/30 text-red-200 text-[10px] font-black group-hover:bg-red-600 group-hover:text-white shrink-0 flex items-center gap-1 transition-colors">
+                            <button
+                              type="button"
+                              onClick={() => handleSelectYtnVideo(video)}
+                              className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[10px] font-black shrink-0 flex items-center gap-1 transition-colors cursor-pointer shadow-md active:scale-95"
+                            >
                               <Play className="w-3 h-3 fill-current" />
-                              <span>Ver</span>
-                            </span>
-                          </button>
+                              <span>{isCurrent && isPlayingYtn ? 'Viendo' : 'Elegir'}</span>
+                            </button>
+                          </div>
                         );
                       })}
                     </div>
@@ -1382,62 +1612,207 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
                 </div>
               )}
 
-              {/* TRACK ACTIVO VLC */}
+              {/* TRACK ACTIVO VLC CON INTERFAZ MEJORADA */}
               {activeVlcTrack && activeVlcTrack.dataUrl ? (
-                <div className="p-4 rounded-2xl bg-black/60 border border-amber-400/30 space-y-3 shadow-lg">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-amber-200 truncate max-w-xs">
-                      🎵 {activeVlcTrack.name}
-                    </span>
-                    <span className="text-[10px] text-white/50 font-mono">
-                      {formatSecs(vlcProgress)} / {formatSecs(vlcDuration)}
+                <div className="p-4 sm:p-5 rounded-3xl bg-black/70 border border-amber-400/40 space-y-4 shadow-2xl">
+                  {/* Título de la pista y formato verificado */}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-black uppercase text-amber-300 tracking-wider flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                        Reproduciendo en VLC Duo
+                      </span>
+                      <h5 className="font-black text-sm sm:text-base text-white truncate mt-0.5">
+                        🎵 {activeVlcTrack.name}
+                      </h5>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 text-[10px] text-amber-200 font-mono shrink-0">
+                      MP3 Local
                     </span>
                   </div>
 
-                  <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-amber-400 rounded-full transition-all"
-                      style={{
-                        width: `${vlcDuration > 0 ? (vlcProgress / vlcDuration) * 100 : 0}%`,
-                      }}
+                  {/* BARRA DE PROGRESO ARRASTRABLE */}
+                  <div className="space-y-1.5">
+                    <input
+                      type="range"
+                      min="0"
+                      max={vlcDuration || 1}
+                      step="0.5"
+                      value={vlcProgress}
+                      onChange={(e) => handleVlcSeek(Number(e.target.value))}
+                      className="w-full h-2 rounded-lg appearance-none bg-white/20 cursor-pointer accent-amber-400 hover:bg-white/30 transition-all"
                     />
+                    <div className="flex items-center justify-between text-[11px] text-amber-200/70 font-mono px-0.5">
+                      <span>{formatSecs(vlcProgress)}</span>
+                      <span>{formatSecs(vlcDuration)}</span>
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1">
+                  {/* BOTONES DE CONTROL COMPLETOS: SHUFFLE, ANTERIOR, RETROCEDER, PLAY/PAUSA, ADELANTAR, SIGUIENTE, REPEAT */}
+                  <div className="flex items-center justify-center gap-2 sm:gap-3 pt-1">
+                    {/* Botón Shuffle / Aleatorio */}
+                    <button
+                      type="button"
+                      onClick={() => setIsVlcShuffle(!isVlcShuffle)}
+                      className={`p-2 sm:p-2.5 rounded-2xl border transition-all cursor-pointer ${
+                        isVlcShuffle
+                          ? 'bg-amber-500 text-slate-950 font-black border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.6)]'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:text-white'
+                      }`}
+                      title={isVlcShuffle ? 'Modo Aleatorio: Activo' : 'Activar Modo Aleatorio'}
+                    >
+                      <Shuffle className="w-4 h-4" />
+                    </button>
+
+                    {/* Botón Canción Anterior */}
+                    <button
+                      type="button"
+                      onClick={handlePrevVlcTrack}
+                      className="p-2 sm:p-2.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 text-white cursor-pointer active:scale-90 transition-all"
+                      title="Canción Anterior"
+                    >
+                      <SkipBack className="w-4 h-4 fill-current" />
+                    </button>
+
+                    {/* Botón Retroceder 10 segundos */}
+                    <button
+                      type="button"
+                      onClick={handleVlcRewind10}
+                      className="px-2.5 py-2 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 text-white/90 text-[11px] font-bold flex items-center gap-1 cursor-pointer active:scale-90 transition-all"
+                      title="Retroceder 10 segundos"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>-10s</span>
+                    </button>
+
+                    {/* BOTÓN PRINCIPAL PLAY / PAUSA */}
                     <button
                       type="button"
                       onClick={() => toggleVlcPlay(activeVlcTrack)}
-                      className="px-4 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-black text-xs flex items-center gap-1.5 cursor-pointer shadow-md active:scale-95"
+                      className="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 flex items-center justify-center cursor-pointer shadow-[0_0_20px_rgba(245,158,11,0.5)] active:scale-95 transition-all"
+                      title={isPlayingVlc ? 'Pausar' : 'Reproducir'}
                     >
-                      {isPlayingVlc ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-                      <span>{isPlayingVlc ? 'Pausa' : 'Play'}</span>
+                      {isPlayingVlc ? (
+                        <Pause className="w-6 h-6 fill-current" />
+                      ) : (
+                        <Play className="w-6 h-6 fill-current ml-0.5" />
+                      )}
                     </button>
 
-                    <span className="text-[10px] text-amber-300/80 font-mono">
-                      Formato verificado: Archivo MP3 puro
-                    </span>
+                    {/* Botón Adelantar 10 segundos */}
+                    <button
+                      type="button"
+                      onClick={handleVlcForward10}
+                      className="px-2.5 py-2 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 text-white/90 text-[11px] font-bold flex items-center gap-1 cursor-pointer active:scale-90 transition-all"
+                      title="Adelantar 10 segundos"
+                    >
+                      <span>+10s</span>
+                      <RotateCw className="w-3.5 h-3.5" />
+                    </button>
+
+                    {/* Botón Canción Siguiente */}
+                    <button
+                      type="button"
+                      onClick={handleNextVlcTrack}
+                      className="p-2 sm:p-2.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 text-white cursor-pointer active:scale-90 transition-all"
+                      title="Canción Siguiente"
+                    >
+                      <SkipForward className="w-4 h-4 fill-current" />
+                    </button>
+
+                    {/* Botón Repeat / Bucle */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (vlcRepeatMode === 'all') setVlcRepeatMode('one');
+                        else if (vlcRepeatMode === 'one') setVlcRepeatMode('off');
+                        else setVlcRepeatMode('all');
+                      }}
+                      className={`p-2 sm:p-2.5 rounded-2xl border transition-all cursor-pointer relative ${
+                        vlcRepeatMode !== 'off'
+                          ? 'bg-amber-500 text-slate-950 font-black border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.6)]'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:text-white'
+                      }`}
+                      title={`Repetición: ${
+                        vlcRepeatMode === 'all'
+                          ? 'Todas las canciones'
+                          : vlcRepeatMode === 'one'
+                          ? 'Canción actual en bucle'
+                          : 'Desactivado'
+                      }`}
+                    >
+                      <Repeat className="w-4 h-4" />
+                      {vlcRepeatMode === 'one' && (
+                        <span className="absolute -top-1 -right-1 text-[9px] bg-red-600 text-white font-black rounded-full px-1">
+                          1
+                        </span>
+                      )}
+                    </button>
                   </div>
 
-                  <audio
-                    ref={localAudioRef}
-                    src={activeVlcTrack.dataUrl}
-                    autoPlay
-                    onTimeUpdate={onTimeUpdateVlc}
-                    onEnded={() => setIsPlayingVlc(false)}
-                  />
+                  {/* CONTROL DE VOLUMEN CON SLIDER Y MUTE */}
+                  <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={toggleVlcMute}
+                        className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-amber-200 cursor-pointer transition-colors"
+                        title={isVlcMuted ? 'Activar Sonido' : 'Silenciar'}
+                      >
+                        {isVlcMuted || vlcVolume === 0 ? (
+                          <VolumeX className="w-4 h-4 text-rose-400" />
+                        ) : (
+                          <Volume2 className="w-4 h-4 text-amber-300" />
+                        )}
+                      </button>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={isVlcMuted ? 0 : vlcVolume}
+                        onChange={(e) => handleVlcVolumeChange(Number(e.target.value))}
+                        className="w-24 sm:w-32 h-1.5 rounded-lg appearance-none bg-white/20 cursor-pointer accent-amber-400"
+                        title={`Volumen: ${Math.round((isVlcMuted ? 0 : vlcVolume) * 100)}%`}
+                      />
+                      <span className="text-[10px] text-white/60 font-mono w-8">
+                        {Math.round((isVlcMuted ? 0 : vlcVolume) * 100)}%
+                      </span>
+                    </div>
+
+                    <span className="text-[10px] text-amber-300/80 font-mono hidden sm:inline-block">
+                      Notificaciones Android Activas 📱
+                    </span>
+                  </div>
                 </div>
               ) : (
                 <div className="p-6 rounded-2xl bg-black/40 border border-white/10 text-center text-xs text-white/50 italic">
-                  No hay canción MP3 reproduciéndose. Pulsa "📁 Escoger Carpeta" o selecciona una canción de abajo.
+                  No hay canción MP3 reproduciéndose. Pulsa "📁 Escoger Carpeta" para cargar tu música local desde el teléfono.
                 </div>
               )}
 
-              {/* BIBLIOTECA VLC MP3 */}
+              {/* BIBLIOTECA VLC MP3 CON CACHÉ INDEXEDDB */}
               <div className="space-y-2">
-                <span className="text-[10px] font-black uppercase text-white/60 flex items-center gap-1.5">
-                  <ListMusic className="w-3.5 h-3.5 text-amber-400" />
-                  Biblioteca MP3 ({vlcTracks.length} canciones):
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase text-white/60 flex items-center gap-1.5">
+                    <ListMusic className="w-3.5 h-3.5 text-amber-400" />
+                    Biblioteca MP3 guardada en teléfono ({vlcTracks.length} canciones):
+                  </span>
+                  {vlcTracks.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await clearAllStoredVlcTracks();
+                        setVlcTracks([]);
+                        setActiveVlcTrack(null);
+                        setIsPlayingVlc(false);
+                      }}
+                      className="text-[10px] text-white/40 hover:text-rose-300 cursor-pointer"
+                    >
+                      Limpiar caché
+                    </button>
+                  )}
+                </div>
 
                 <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                   {vlcTracks.length === 0 ? (
@@ -1453,7 +1828,7 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
                           onClick={() => tr.dataUrl && toggleVlcPlay(tr)}
                           className={`p-2.5 rounded-xl border flex items-center justify-between text-xs cursor-pointer transition-all ${
                             isCurrent
-                              ? 'bg-amber-500/20 border-amber-400 text-amber-200 font-bold'
+                              ? 'bg-amber-500/20 border-amber-400 text-amber-200 font-bold shadow-md'
                               : 'bg-white/5 border-white/10 hover:bg-white/10 text-white/80'
                           }`}
                         >
@@ -1474,6 +1849,30 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
           )}
         </div>
       </ModalPortal>
+
+      {/* ELEMENTO DE AUDIO VLC PERSISTENTE EN EL DOM (SIGUE SONANDO AL CERRAR EL MODAL) */}
+      <audio
+        ref={localAudioRef}
+        src={activeVlcTrack?.dataUrl}
+        autoPlay={isPlayingVlc}
+        onTimeUpdate={onTimeUpdateVlc}
+        onEnded={onVlcEnded}
+        className="hidden"
+      />
+
+      {/* REPRODUCTOR EN SEGUNDO PLANO DE YOUTUBE CUANDO EL MODAL ESTÁ CERRADO (AL CERRAR SIGUE SONANDO) */}
+      {!isOpen && isPlayingYtm && activeTrack?.ytId && (
+        <div
+          className="fixed -bottom-96 -right-96 w-1 h-1 opacity-0 pointer-events-none overflow-hidden"
+          aria-hidden="true"
+        >
+          <iframe
+            title="Background YouTube Audio"
+            src={`https://www.youtube-nocookie.com/embed/${activeTrack.ytId}?autoplay=1&enablejsapi=1`}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          />
+        </div>
+      )}
     </>
   );
 };
