@@ -370,6 +370,53 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </button>
                   )}
                 </div>
+
+                {/* Opciones de Ajuste de Foto (Sin cortes) */}
+                {settings.customBgImage && (
+                  <div className="p-3 rounded-2xl bg-white/5 border border-white/10 space-y-2 mt-2">
+                    <label className="text-[11px] font-bold text-white/90 uppercase tracking-wider block">
+                      Ajuste de la foto a la pantalla:
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => updateSettings({ customBgFit: 'contain' })}
+                        className={`p-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                          (!settings.customBgFit || settings.customBgFit === 'contain')
+                            ? 'bg-rose-500 text-white border-rose-400 shadow-md'
+                            : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'
+                        }`}
+                      >
+                        🖼️ Completa (Sin cortes)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateSettings({ customBgFit: 'cover' })}
+                        className={`p-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                          settings.customBgFit === 'cover'
+                            ? 'bg-rose-500 text-white border-rose-400 shadow-md'
+                            : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'
+                        }`}
+                      >
+                        📱 Llenar pantalla
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateSettings({ customBgFit: 'fill' })}
+                        className={`p-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                          settings.customBgFit === 'fill'
+                            ? 'bg-rose-500 text-white border-rose-400 shadow-md'
+                            : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'
+                        }`}
+                      >
+                        📐 Estirar
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-white/50">
+                      "Completa (Sin cortes)" adapta tu foto a cualquier tamaño de pantalla sin recortar nada.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Presets de Fondos Uniformes */}

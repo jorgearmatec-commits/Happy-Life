@@ -86,6 +86,12 @@ export type SoundTone =
   | 'samsung'
   | 'huawei'
   | 'nokia'
+  | 'samsung_over_horizon'
+  | 'samsung_morning_flower'
+  | 'samsung_homecoming'
+  | 'huawei_tune_living'
+  | 'huawei_dream_possible'
+  | 'huawei_classic'
   | 'google_chime'
   | 'google_eureka'
   | 'google_crystal'
@@ -206,6 +212,7 @@ export interface LocalAudioTrack {
 export interface AppSettings {
   backgroundTheme: string;
   customBgImage?: string;
+  customBgFit?: 'contain' | 'cover' | 'fill';
   textColor: string;
   subtextColor: string;
   fontSize: 'small' | 'normal' | 'medium' | 'large' | 'extralarge';

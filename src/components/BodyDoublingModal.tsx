@@ -25,6 +25,7 @@ import {
   Smartphone,
   Shuffle,
   RefreshCw,
+  Maximize2,
   X
 } from 'lucide-react';
 import { ModalPortal } from './ModalPortal';
@@ -297,12 +298,14 @@ interface CachedVlcTrack {
 export interface BodyDoublingModalProps {
   isOpen?: boolean;
   onClose?: () => void;
+  onOpen?: () => void;
   hideFloatingButton?: boolean;
 }
 
 export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
   isOpen: propIsOpen,
   onClose: propOnClose,
+  onOpen: propOnOpen,
   hideFloatingButton = false,
 }) => {
   const { updateMyCurrentTrack } = useApp();
@@ -312,6 +315,13 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
     setInternalIsOpen(val);
     if (!val && propOnClose) propOnClose();
   };
+
+  const openModal = () => {
+    if (propOnOpen) propOnOpen();
+    else setInternalIsOpen(true);
+  };
+
+  const keepAliveAudioRef = useRef<HTMLAudioElement>(null);
 
   const [activeTab, setActiveTab] = useState<'yt_music' | 'yt_normal' | 'vlc_mp3'>('yt_music');
 
@@ -1288,17 +1298,52 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
                 )}
               </div>
 
-              {/* REPRODUCTOR EMBEBIDO YOUTUBE MUSIC (MINI YOUTUBE) */}
-              <div className="rounded-2xl overflow-hidden aspect-video max-h-52 bg-black border border-white/10 shadow-xl">
-                <iframe
-                  title={activeTrack.title}
-                  src={`https://www.youtube-nocookie.com/embed/${activeTrack.ytId}?autoplay=${
-                    isPlayingYtm ? 1 : 0
-                  }&playsinline=1&enablejsapi=1`}
-                  className="w-full h-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
+              {/* REPRODUCTOR VISUALIZADOR YOUTUBE MUSIC */}
+              <div className="rounded-3xl p-4 bg-gradient-to-r from-rose-950/70 via-black to-slate-900 border border-rose-500/30 shadow-xl flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="relative w-14 h-14 shrink-0">
+                    <img
+                      src={activeTrack.albumArt}
+                      alt={activeTrack.title}
+                      className={`w-14 h-14 rounded-2xl object-cover border-2 border-rose-400 shadow-md ${
+                        isPlayingYtm ? 'animate-spin' : ''
+                      }`}
+                      style={{ animationDuration: '8s' }}
+                    />
+                    <div className="absolute inset-0 rounded-2xl border border-white/20 flex items-center justify-center">
+                      <div className="w-3.5 h-3.5 rounded-full bg-slate-950 border border-white/60" />
+                    </div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-rose-300">
+                        {isPlayingYtm ? 'Sonando en Vivo' : 'Pausado'}
+                      </span>
+                      {isPlayingYtm && (
+                        <span className="flex items-end gap-0.5 h-3">
+                          <span className="w-1 h-full bg-rose-400 animate-pulse" />
+                          <span className="w-1 h-2/3 bg-amber-400 animate-bounce" />
+                          <span className="w-1 h-4/5 bg-cyan-400 animate-pulse" />
+                        </span>
+                      )}
+                    </div>
+                    <h5 className="text-sm font-black text-white truncate">{activeTrack.title}</h5>
+                    <p className="text-xs text-white/60 truncate">{activeTrack.artist}</p>
+                    <span className="text-[10px] text-emerald-300 flex items-center gap-1 mt-0.5 font-medium">
+                      ✓ Reproducción continua en segundo plano activa (no se corta al cerrar)
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => window.open(`https://www.youtube.com/watch?v=${activeTrack.ytId}`, '_blank')}
+                  className="px-3 py-2 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 cursor-pointer"
+                  title="Abrir en YouTube oficial"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Ver Video</span>
+                </button>
               </div>
 
               {/* PLAYLIST / CATÁLOGO RECOMENDADO EN PAREJA */}
@@ -1850,6 +1895,14 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
         </div>
       </ModalPortal>
 
+      {/* ELEMENTO DE AUDIO SILENCIOSO PARA MANTENER LA SESIÓN ACTIVA AL BLOQUEAR EL TELÉFONO */}
+      <audio
+        ref={keepAliveAudioRef}
+        loop
+        src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"
+        className="hidden"
+      />
+
       {/* ELEMENTO DE AUDIO VLC PERSISTENTE EN EL DOM (SIGUE SONANDO AL CERRAR EL MODAL) */}
       <audio
         ref={localAudioRef}
@@ -1860,18 +1913,123 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
         className="hidden"
       />
 
-      {/* REPRODUCTOR EN SEGUNDO PLANO DE YOUTUBE CUANDO EL MODAL ESTÁ CERRADO (AL CERRAR SIGUE SONANDO) */}
-      {!isOpen && isPlayingYtm && activeTrack?.ytId && (
+      {/* REPRODUCTOR PERSISTENTE CONTINUO EN SEGUNDO PLANO DE YOUTUBE */}
+      {((isPlayingYtm && activeTrack?.ytId) || (isPlayingYtn && activeVideo?.ytId)) && (
         <div
           className="fixed -bottom-96 -right-96 w-1 h-1 opacity-0 pointer-events-none overflow-hidden"
           aria-hidden="true"
         >
           <iframe
+            key={isPlayingYtm ? `ytm_${activeTrack.ytId}` : `ytn_${activeVideo.ytId}`}
             title="Background YouTube Audio"
-            src={`https://www.youtube-nocookie.com/embed/${activeTrack.ytId}?autoplay=1&enablejsapi=1`}
+            src={`https://www.youtube-nocookie.com/embed/${
+              isPlayingYtm ? activeTrack.ytId : activeVideo.ytId
+            }?autoplay=1&enablejsapi=1&playsinline=1`}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           />
         </div>
+      )}
+
+      {/* MINI BARRA FLOTANTE GLOBAL DE MÚSICA EN SEGUNDO PLANO (CUANDO EL MODAL ESTÁ CERRADO) */}
+      {!isOpen && (isPlayingYtm || isPlayingYtn || isPlayingVlc) && (
+        <motion.div
+          initial={{ y: 80, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 80, opacity: 0 }}
+          className="fixed bottom-24 sm:bottom-6 left-3 right-3 sm:left-auto sm:right-6 sm:max-w-md z-[99990] select-none"
+        >
+          <div className="p-3 sm:p-3.5 rounded-3xl bg-slate-950/95 border-2 border-rose-500/50 backdrop-blur-2xl shadow-[0_20px_40px_rgba(0,0,0,0.85),0_0_30px_rgba(244,63,94,0.35)] flex items-center justify-between gap-3 text-white">
+            {/* Información del tema y disco */}
+            <div
+              onClick={openModal}
+              className="flex items-center gap-3 min-w-0 cursor-pointer group flex-1"
+              title="Toca para volver a Música Duo"
+            >
+              <div className="relative w-11 h-11 shrink-0">
+                <img
+                  src={
+                    isPlayingYtm
+                      ? activeTrack.albumArt
+                      : isPlayingYtn
+                      ? activeVideo.thumbnail
+                      : 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=500'
+                  }
+                  alt="Reproduciendo"
+                  className={`w-11 h-11 rounded-full object-cover border-2 border-rose-400 shadow-md ${
+                    isPlayingYtm || isPlayingYtn || isPlayingVlc ? 'animate-spin' : ''
+                  }`}
+                  style={{ animationDuration: '6s' }}
+                />
+                <div className="absolute inset-0 rounded-full border border-white/30 flex items-center justify-center">
+                  <div className="w-2.5 h-2.5 rounded-full bg-slate-950 border border-white/60" />
+                </div>
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-rose-300">
+                    {isPlayingYtm ? 'YouTube Music Duo' : isPlayingYtn ? 'YouTube Video Duo' : 'VLC Audio Local'}
+                  </span>
+                  <span className="flex items-end gap-0.5 h-3">
+                    <span className="w-0.5 h-full bg-rose-400 animate-pulse" />
+                    <span className="w-0.5 h-2/3 bg-amber-400 animate-bounce" />
+                    <span className="w-0.5 h-4/5 bg-cyan-400 animate-pulse" />
+                  </span>
+                </div>
+                <h5 className="text-xs font-bold text-white truncate group-hover:text-rose-200 transition-colors">
+                  {isPlayingYtm ? activeTrack.title : isPlayingYtn ? activeVideo.title : activeVlcTrack?.name || 'Audio'}
+                </h5>
+                <p className="text-[10px] text-white/50 truncate">
+                  {isPlayingYtm ? activeTrack.artist : isPlayingYtn ? activeVideo.channel : 'En Segundo Plano'}
+                </p>
+              </div>
+            </div>
+
+            {/* Controles de reproducción */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  if (isPlayingYtm) toggleYtmPlay();
+                  else if (isPlayingYtn) setIsPlayingYtn(!isPlayingYtn);
+                  else if (activeVlcTrack) toggleVlcPlay(activeVlcTrack);
+                }}
+                className="w-9 h-9 rounded-full bg-rose-500 hover:bg-rose-400 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer shadow-md"
+                title="Pausar / Reanudar"
+              >
+                {isPlayingYtm || isPlayingYtn || isPlayingVlc ? (
+                  <Pause className="w-4 h-4 fill-current" />
+                ) : (
+                  <Play className="w-4 h-4 fill-current ml-0.5" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={openModal}
+                className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-[11px] font-bold text-white/90 flex items-center gap-1 transition-all cursor-pointer"
+                title="Abrir interfaz completa de Música Duo"
+              >
+                <Maximize2 className="w-3.5 h-3.5 text-rose-300" />
+                <span className="hidden sm:inline">Abrir</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPlayingYtm(false);
+                  setIsPlayingYtn(false);
+                  setIsPlayingVlc(false);
+                  updateMyCurrentTrack(undefined);
+                }}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-white/60 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+                title="Detener música y cerrar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </motion.div>
       )}
     </>
   );

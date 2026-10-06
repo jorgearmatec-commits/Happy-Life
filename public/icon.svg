@@ -1,47 +1,84 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <radialGradient id="bgGrad" cx="30%" cy="30%" r="70%">
-      <stop offset="0%" stop-color="#6b8e23" />
-      <stop offset="50%" stop-color="#556b2f" />
-      <stop offset="100%" stop-color="#38491d" />
-    </radialGradient>
-    <linearGradient id="heartGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ff3366" />
-      <stop offset="50%" stop-color="#e11d48" />
-      <stop offset="100%" stop-color="#9f1239" />
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e1035" />
+      <stop offset="40%" stop-color="#3b0764" />
+      <stop offset="80%" stop-color="#831843" />
+      <stop offset="100%" stop-color="#500724" />
     </linearGradient>
-    <linearGradient id="arrowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+
+    <!-- Heart Left Gradient (Me) -->
+    <linearGradient id="heartMe" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#6366f1" />
+    </linearGradient>
+
+    <!-- Heart Right Gradient (Partner) -->
+    <linearGradient id="heartPartner" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fb7185" />
+      <stop offset="50%" stop-color="#f43f5e" />
+      <stop offset="100%" stop-color="#e11d48" />
+    </linearGradient>
+
+    <!-- Central Gold Glow Gradient -->
+    <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fde047" stop-opacity="0.9" />
+      <stop offset="50%" stop-color="#fbbf24" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Gold Ribbon Gradient -->
+    <linearGradient id="goldRibbon" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="50%" stop-color="#facc15" />
       <stop offset="100%" stop-color="#eab308" />
     </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000" flood-opacity="0.5" />
+
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000" flood-opacity="0.6" />
     </filter>
   </defs>
 
-  <!-- Avocado / Olive Green Rounded Background -->
-  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+  <!-- Squircle Base -->
+  <rect width="512" height="512" rx="120" fill="url(#bgGrad)" />
+  <rect width="502" height="502" x="5" y="5" rx="115" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="4" />
 
-  <!-- Subtle Inner Glow Border -->
-  <rect width="504" height="504" x="4" y="4" rx="124" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="8" />
+  <!-- Radiating Aura / Sunburst Glow -->
+  <circle cx="256" cy="210" r="170" fill="url(#sunGlow)" />
 
-  <g filter="url(#shadow)">
-    <!-- Cupid's Arrow (Tail) -->
-    <path d="M 60 410 L 160 310" stroke="url(#arrowGrad)" stroke-width="14" stroke-linecap="round" />
-    <!-- Feathers -->
-    <path d="M 50 420 L 40 450 L 70 440 Z" fill="#fef08a" />
-    <path d="M 60 410 L 80 430 L 50 440 Z" fill="#eab308" />
-    <path d="M 70 400 L 95 410 L 65 430 Z" fill="#facc15" />
+  <g filter="url(#softShadow)">
+    <!-- Intertwined Hearts / Infinity Duo -->
+    <!-- Left Heart (Blue/Cyan Duo) -->
+    <path d="M 210 270 C 130 200 120 120 170 85 C 215 55 250 95 256 125 C 240 90 205 60 160 80 C 100 115 110 215 210 285 Z" fill="url(#heartMe)" opacity="0.9" />
 
-    <!-- Red Heart -->
-    <path d="M 256 420 C 256 420 80 320 80 180 C 80 100 140 60 200 60 C 235 60 256 90 256 110 C 256 90 277 60 312 60 C 372 60 432 100 432 180 C 432 320 256 420 256 420 Z" fill="url(#heartGrad)" />
-    
-    <!-- Specular Highlight on Heart -->
-    <path d="M 120 160 C 120 110 160 85 200 85 C 215 85 230 92 240 105 C 230 115 200 120 170 140 C 145 155 130 180 125 200 C 122 185 120 172 120 160 Z" fill="white" opacity="0.35" />
+    <!-- Right Main Big Heart (Rose/Coral) -->
+    <path d="M 256 330 C 256 330 140 230 140 150 C 140 100 180 70 225 70 C 248 70 256 85 256 95 C 256 85 264 70 287 70 C 332 70 372 100 372 150 C 372 230 256 330 256 330 Z" fill="url(#heartPartner)" />
 
-    <!-- Cupid's Arrow (Tip exiting heart) -->
-    <path d="M 330 140 L 430 40" stroke="url(#arrowGrad)" stroke-width="14" stroke-linecap="round" />
-    <!-- Arrow Head -->
-    <polygon points="450,20 400,35 435,70" fill="url(#arrowGrad)" />
+    <!-- Heart Specular Highlight -->
+    <path d="M 165 140 C 165 105 190 85 220 85 C 210 95 190 105 180 125 C 175 135 170 150 165 160 Z" fill="#ffffff" opacity="0.4" />
+
+    <!-- Little Companion Sparkle Heart -->
+    <path d="M 330 120 C 330 120 290 85 290 60 C 290 45 302 35 315 35 C 322 35 327 40 330 45 C 333 40 338 35 345 35 C 358 35 370 45 370 60 C 370 85 330 120 330 120 Z" fill="#fde047" />
+
+    <!-- Sparkles / Little Stars -->
+    <polygon points="120,90 124,102 136,106 124,110 120,122 116,110 104,106 116,102" fill="#fde047" />
+    <polygon points="380,210 383,218 391,221 383,224 380,232 377,224 369,221 377,218" fill="#fde047" />
+    <polygon points="256,50 258,56 264,58 258,60 256,66 254,60 248,58 254,56" fill="#ffffff" />
+
+    <!-- Golden Emblem Ribbon Banner for "HAPPY LIFE" -->
+    <g transform="translate(0, 310)">
+      <!-- Ribbon Shadow and Base -->
+      <path d="M 80 80 L 130 50 L 382 50 L 432 80 L 382 110 L 130 110 Z" fill="#b45309" opacity="0.6" />
+      <path d="M 90 75 L 130 55 L 382 55 L 422 75 L 382 95 L 130 95 Z" fill="url(#goldRibbon)" stroke="#ffffff" stroke-width="2" />
+      
+      <!-- Text: HAPPY LIFE -->
+      <text x="256" y="82" font-family="'Outfit', 'Plus Jakarta Sans', Arial, sans-serif" font-size="28" font-weight="900" fill="#451a03" text-anchor="middle" letter-spacing="4">HAPPY LIFE</text>
+      
+      <!-- Subtext: DUO -->
+      <rect x="226" y="98" width="60" height="20" rx="10" fill="#ffffff" />
+      <text x="256" y="112" font-family="'Outfit', 'Plus Jakarta Sans', Arial, sans-serif" font-size="12" font-weight="900" fill="#e11d48" text-anchor="middle" letter-spacing="2">DUO</text>
+    </g>
   </g>
 </svg>

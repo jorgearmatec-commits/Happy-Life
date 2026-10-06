@@ -18,6 +18,7 @@ import { useApp } from '../context/AppContext';
 import { AlarmItem, SoundTone } from '../types';
 import { playTone } from './AudioSynthesizer';
 import { ModalPortal } from './ModalPortal';
+import { CalendarSection } from './CalendarSection';
 
 export const AlarmClockSection: React.FC = () => {
   const { alarms, reminders, addAlarm, toggleAlarm, deleteAlarm } = useApp();
@@ -29,7 +30,7 @@ export const AlarmClockSection: React.FC = () => {
   const [alarmTone, setAlarmTone] = useState<SoundTone>('google_chime');
   const [customToneName, setCustomToneName] = useState<string>('');
   const [customToneData, setCustomToneData] = useState<string>('');
-  const [clockViewMode, setClockViewMode] = useState<'alarm' | 'live_time'>('live_time');
+  const [clockViewMode, setClockViewMode] = useState<'alarm' | 'live_time' | 'calendar'>('alarm');
 
   // Live ticking date and time with moving second hand
   const [nowDate, setNowDate] = useState<Date>(new Date());
@@ -203,12 +204,12 @@ export const AlarmClockSection: React.FC = () => {
       </div>
 
       <div className="glass-card p-6 border-cyan-500/20">
-        {/* Selector de Modos: Configurar Alarma primero y al lado Hora Actual */}
-        <div className="flex p-1 rounded-2xl bg-white/10 border border-white/15 mb-6 max-w-md mx-auto">
+        {/* Selector de Modos (3 apartados: Configurar Alarma, Hora Actual, Calendario de Alarmas) */}
+        <div className="flex p-1 rounded-2xl bg-white/10 border border-white/15 mb-6 max-w-xl mx-auto">
           <button
             type="button"
             onClick={() => setClockViewMode('alarm')}
-            className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               clockViewMode === 'alarm'
                 ? 'bg-rose-500 text-white shadow-lg scale-102'
                 : 'text-white/70 hover:text-white'
@@ -220,7 +221,7 @@ export const AlarmClockSection: React.FC = () => {
           <button
             type="button"
             onClick={() => setClockViewMode('live_time')}
-            className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               clockViewMode === 'live_time'
                 ? 'bg-cyan-500 text-slate-950 shadow-lg scale-102'
                 : 'text-white/70 hover:text-white'
@@ -229,10 +230,26 @@ export const AlarmClockSection: React.FC = () => {
             <Clock className="w-4 h-4" />
             <span>Hora Actual ⏰</span>
           </button>
+          <button
+            type="button"
+            onClick={() => setClockViewMode('calendar')}
+            className={`flex-1 py-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              clockViewMode === 'calendar'
+                ? 'bg-amber-500 text-slate-950 shadow-lg scale-102'
+                : 'text-white/70 hover:text-white'
+            }`}
+          >
+            <CalendarIcon className="w-4 h-4" />
+            <span>Calendario de Alarmas 📅</span>
+          </button>
         </div>
 
-        {/* MODO 1: HORA ACTUAL EN VIVO CON SEGUNDERO Y FECHA */}
-        {clockViewMode === 'live_time' ? (
+        {/* MODO 3: CALENDARIO DE ALARMAS Y RECORDATORIOS */}
+        {clockViewMode === 'calendar' ? (
+          <div className="py-2">
+            <CalendarSection embedded={true} />
+          </div>
+        ) : clockViewMode === 'live_time' ? (
           <div className="flex flex-col items-center justify-center space-y-6 py-2">
             {/* Fecha Actual y Hora Digital en Vivo */}
             <div className="text-center space-y-1">
@@ -528,6 +545,14 @@ export const AlarmClockSection: React.FC = () => {
                   }}
                   className="w-full px-3 py-2 rounded-xl bg-black/40 text-white border border-white/20 text-xs focus:outline-none"
                 >
+                  <optgroup label="Tonos Clásicos Samsung y Huawei (Largo y Alto Volumen)">
+                    <option value="samsung_over_horizon">Samsung Over the Horizon (Clásico Completo) 🔊</option>
+                    <option value="samsung_morning_flower">Samsung Morning Flower (Campanadas Dulces) 🔊</option>
+                    <option value="samsung_homecoming">Samsung Homecoming (Marimba Acústica) 🔊</option>
+                    <option value="huawei_tune_living">Huawei Tune Living (Gotas y Flauta Icónica) 🔊</option>
+                    <option value="huawei_dream_possible">Huawei Dream It Possible (Himno Piano) 🔊</option>
+                    <option value="huawei_classic">Huawei Classic Ringtone (Campanilla Tradicional) 🔊</option>
+                  </optgroup>
                   <optgroup label="Campanas y Chimes de Google">
                     <option value="google_chime">Google Chime 🔔</option>
                     <option value="google_eureka">Google Eureka 🌟</option>

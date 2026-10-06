@@ -15,7 +15,8 @@ import {
   RotateCw,
   Heart,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Dices
 } from 'lucide-react';
 import { useApp, EMOTION_OPTIONS } from '../context/AppContext';
 import { COMPREHENSIVE_ADVICE, ADVICE_CATEGORIES } from '../data/comprehensiveAdvice';

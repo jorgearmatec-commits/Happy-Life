@@ -12,6 +12,8 @@ import {
 import { useApp } from '../context/AppContext';
 import { ModalPortal } from './ModalPortal';
 
+import { getDayInfo } from '../data/calendarOnomastics';
+
 export const MenstrualCalendarModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
   isOpen,
   onClose,
@@ -254,6 +256,31 @@ export const MenstrualCalendarModal: React.FC<{ isOpen: boolean; onClose: () => 
               />
             </div>
           </div>
+        </div>
+
+        {/* Onomástico y Curiosidades Diarias según Google */}
+        <div className="p-4 rounded-3xl bg-gradient-to-br from-purple-950/40 via-pink-950/30 to-black/50 border border-pink-400/30 space-y-2.5 text-xs">
+          <div className="flex items-center gap-1.5 text-pink-300 font-bold uppercase tracking-wider text-[10px]">
+            <Sparkles className="w-3.5 h-3.5 text-pink-300" />
+            <span>Onomástico y Curiosidad del Día (Google)</span>
+          </div>
+          {(() => {
+            const today = new Date();
+            const info = getDayInfo(today.getMonth(), today.getDate());
+            return (
+              <div className="space-y-1.5 text-white/90">
+                <p>
+                  <strong className="text-amber-200">Santoral de hoy:</strong> {info.onomastic}
+                </p>
+                <p>
+                  <strong className="text-sky-200">Celebración del día:</strong> {info.celebration}
+                </p>
+                <p className="text-[11px] text-white/70 italic">
+                  💡 {info.curiosity}
+                </p>
+              </div>
+            );
+          })()}
         </div>
 
         <button

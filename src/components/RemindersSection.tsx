@@ -691,6 +691,14 @@ export const RemindersSection: React.FC = () => {
               }}
               className="w-full p-2.5 rounded-xl bg-black/50 text-white border border-white/20 text-xs focus:outline-none"
             >
+              <optgroup label="Tonos Clásicos Samsung y Huawei (Largo y Alto Volumen)">
+                <option value="samsung_over_horizon">Samsung Over the Horizon (Clásico Completo) 🔊</option>
+                <option value="samsung_morning_flower">Samsung Morning Flower (Campanadas Dulces) 🔊</option>
+                <option value="samsung_homecoming">Samsung Homecoming (Marimba Acústica) 🔊</option>
+                <option value="huawei_tune_living">Huawei Tune Living (Gotas y Flauta Icónica) 🔊</option>
+                <option value="huawei_dream_possible">Huawei Dream It Possible (Himno Piano) 🔊</option>
+                <option value="huawei_classic">Huawei Classic Ringtone (Campanilla Tradicional) 🔊</option>
+              </optgroup>
               <optgroup label="Campanas y Chimes de Google">
                 <option value="google_chime">Google Chime 🔔</option>
                 <option value="google_eureka">Google Eureka 🌟</option>

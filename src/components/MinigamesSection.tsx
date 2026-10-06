@@ -18,6 +18,8 @@ import {
 import { useApp } from '../context/AppContext';
 import { ThreeDice3D } from './ThreeDice3D';
 import { playTone } from './AudioSynthesizer';
+import { SpanishCardView } from './SpanishCardView';
+import { UnoCardView } from './UnoCardView';
 
 // =========================================================================
 // 1. TIPOS Y UTILIDADES PARA LA BARAJA ESPAÑOLA (LA ESCOBA DEL 15)
@@ -249,10 +251,17 @@ export const MinigamesSection: React.FC = () => {
   const [escobaLastTaker, setEscobaLastTaker] = useState<'p1' | 'p2' | null>(null);
   const [selectedHandCard, setSelectedHandCard] = useState<SpanishCard | null>(null);
   const [selectedTableCards, setSelectedTableCards] = useState<SpanishCard[]>([]);
-  const [escobaMessage, setEscobaMessage] = useState<string>('Selecciona una carta de tu mano y las cartas de la mesa que sumen 15.');
+  const [escobaMessage, setEscobaMessage] = useState<string>('Selecciona una carta de tu mano. El asistente detectará combinaciones que sumen 15.');
   const [escobaGameOver, setEscobaGameOver] = useState<boolean>(false);
+  const [escobaScores, setEscobaScores] = useState<{
+    scoreP1: number;
+    scoreP2: number;
+    detailsP1: string[];
+    detailsP2: string[];
+    winnerName: string;
+  } | null>(null);
 
-  // Iniciar partida de Escoba
+  // Iniciar partida de Escoba (baraja completa de 40 cartas española)
   const startNewEscobaGame = () => {
     const freshDeck = createSpanishDeck();
     const tableCards = freshDeck.slice(0, 4);
@@ -273,7 +282,8 @@ export const MinigamesSection: React.FC = () => {
     setSelectedHandCard(null);
     setSelectedTableCards([]);
     setEscobaGameOver(false);
-    setEscobaMessage('¡Partida iniciada! Es el turno de ' + (currentDisplayMe.name || 'Jugador 1'));
+    setEscobaScores(null);
+    setEscobaMessage('¡Partida iniciada con la Baraja Española tradicional! Es el turno de ' + (currentDisplayMe.name || 'Jugador 1'));
     playTone('water');
   };
 
@@ -283,7 +293,61 @@ export const MinigamesSection: React.FC = () => {
     }
   }, [activeGame]);
 
-  // Selección de cartas de la mesa en Escoba
+  // Algoritmo para encontrar todas las combinaciones de la mesa que suman 15 con una carta
+  const findSumsOf15 = (handCard: SpanishCard, table: SpanishCard[]): SpanishCard[][] => {
+    const target = 15 - handCard.value;
+    if (target <= 0) return [];
+    const results: SpanishCard[][] = [];
+
+    const backtrack = (start: number, currentSum: number, currentComb: SpanishCard[]) => {
+      if (currentSum === target) {
+        results.push([...currentComb]);
+        return;
+      }
+      if (currentSum > target) return;
+      for (let i = start; i < table.length; i++) {
+        currentComb.push(table[i]);
+        backtrack(i + 1, currentSum + table[i].value, currentComb);
+        currentComb.pop();
+      }
+    };
+
+    backtrack(0, 0, []);
+
+    // Priorizar: 1. Escoba que limpie la mesa, 2. El Siete de Oros, 3. Más cartas
+    results.sort((a, b) => {
+      const isEscobaA = a.length === table.length ? 1 : 0;
+      const isEscobaB = b.length === table.length ? 1 : 0;
+      if (isEscobaA !== isEscobaB) return isEscobaB - isEscobaA;
+      const has7OrosA = a.some((c) => c.suit === 'oros' && c.rank === 7) ? 1 : 0;
+      const has7OrosB = b.some((c) => c.suit === 'oros' && c.rank === 7) ? 1 : 0;
+      if (has7OrosA !== has7OrosB) return has7OrosB - has7OrosA;
+      return b.length - a.length;
+    });
+
+    return results;
+  };
+
+  // Selección fluida e interactiva de carta en mano (asistente automático de suma 15)
+  const handleSelectHandCard = (card: SpanishCard) => {
+    if (selectedHandCard?.id === card.id) {
+      setSelectedHandCard(null);
+      setSelectedTableCards([]);
+      return;
+    }
+
+    setSelectedHandCard(card);
+    const validCombs = findSumsOf15(card, escobaTable);
+    if (validCombs.length > 0) {
+      // Auto-seleccionar la mejor combinación que suma 15
+      setSelectedTableCards(validCombs[0]);
+      playTone('water');
+    } else {
+      setSelectedTableCards([]);
+    }
+  };
+
+  // Selección manual de cartas en la mesa
   const toggleSelectTableCard = (card: SpanishCard) => {
     setSelectedTableCards((prev) =>
       prev.some((c) => c.id === card.id) ? prev.filter((c) => c.id !== card.id) : [...prev, card]
@@ -294,237 +358,309 @@ export const MinigamesSection: React.FC = () => {
   const currentEscobaSum = (selectedHandCard ? selectedHandCard.value : 0) +
     selectedTableCards.reduce((acc, c) => acc + c.value, 0);
 
-  // Ejecutar jugada de Escoba
-  const handlePlayEscobaCard = () => {
-    if (!selectedHandCard) return;
+  // Ejecutor centralizado de jugadas (garantiza baraja automática de nuevas manos y fin de juego)
+  const executeEscobaMove = (
+    player: 'p1' | 'p2',
+    playedCard: SpanishCard,
+    capturedTableCards: SpanishCard[],
+    currentTable: SpanishCard[],
+    currentHandP1: SpanishCard[],
+    currentHandP2: SpanishCard[],
+    currentDeck: SpanishCard[],
+    currentPileP1: SpanishCard[],
+    currentPileP2: SpanishCard[],
+    currentCountP1: number,
+    currentCountP2: number,
+    currentLastTaker: 'p1' | 'p2' | null
+  ) => {
+    const sum = playedCard.value + capturedTableCards.reduce((acc, c) => acc + c.value, 0);
+    const isValid15 = sum === 15 && capturedTableCards.length > 0;
 
-    const isP1 = escobaTurn === 'p1';
-    const currentHand = isP1 ? escobaHandP1 : escobaHandP2;
-    const currentName = isP1 ? (currentDisplayMe.name || 'Jugador 1') : (escobaMode === 'solo' ? 'Pareja Virtual 🤖' : (currentDisplayPartner.name || 'Jugador 2'));
+    let nextTable = currentTable;
+    let nextPileP1 = [...currentPileP1];
+    let nextPileP2 = [...currentPileP2];
+    let nextCountP1 = currentCountP1;
+    let nextCountP2 = currentCountP2;
+    let nextLastTaker = currentLastTaker;
+    let actionMessage = '';
 
-    // Caso A: Se captura sumando 15
-    if (currentEscobaSum === 15 && selectedTableCards.length > 0) {
-      const remainingTable = escobaTable.filter(
-        (tc) => !selectedTableCards.some((sc) => sc.id === tc.id)
-      );
-      const isEscobaSweep = remainingTable.length === 0;
+    const playerName = player === 'p1'
+      ? (currentDisplayMe.name || 'Jugador 1')
+      : (escobaMode === 'solo' ? 'Pareja Virtual 🤖' : (currentDisplayPartner.name || 'Jugador 2'));
 
-      const capturedCards = [selectedHandCard, ...selectedTableCards];
+    if (isValid15) {
+      nextTable = currentTable.filter((tc) => !capturedTableCards.some((sc) => sc.id === tc.id));
+      const isSweep = nextTable.length === 0;
+      const captured = [playedCard, ...capturedTableCards];
 
-      if (isP1) {
-        setEscobaPileP1((prev) => [...prev, ...capturedCards]);
-        setEscobaHandP1((prev) => prev.filter((c) => c.id !== selectedHandCard.id));
-        if (isEscobaSweep) {
-          setEscobaCountP1((prev) => prev + 1);
+      if (player === 'p1') {
+        nextPileP1 = [...nextPileP1, ...captured];
+        if (isSweep) {
+          nextCountP1 += 1;
           trigger3DConfetti();
-          playTone('peaceful_chime');
+          playTone('cathedral_bells');
+          actionMessage = `🧹 ¡¡ESCOBA de ${playerName}!! Limpia la mesa (+1 Punto) 🎉`;
         } else {
           playTone('zen_bowl');
+          actionMessage = `✅ ${playerName} suma 15 y captura ${captured.length} cartas`;
         }
       } else {
-        setEscobaPileP2((prev) => [...prev, ...capturedCards]);
-        setEscobaHandP2((prev) => prev.filter((c) => c.id !== selectedHandCard.id));
-        if (isEscobaSweep) {
-          setEscobaCountP2((prev) => prev + 1);
+        nextPileP2 = [...nextPileP2, ...captured];
+        if (isSweep) {
+          nextCountP2 += 1;
           trigger3DConfetti();
-          playTone('peaceful_chime');
+          playTone('cathedral_bells');
+          actionMessage = `🧹 ¡¡ESCOBA de ${playerName}!! Limpia la mesa (+1 Punto) 🎉`;
         } else {
           playTone('zen_bowl');
+          actionMessage = `🤖 ${playerName} suma 15 y captura ${captured.length} cartas`;
         }
       }
-
-      setEscobaTable(remainingTable);
-      setEscobaLastTaker(isP1 ? 'p1' : 'p2');
-
-      const notice = isEscobaSweep
-        ? `🧹 ¡¡ESCOBA de ${currentName}!! Limpia la mesa (+1 Punto) 🎉`
-        : `✅ ${currentName} suma 15 y captura ${capturedCards.length} cartas`;
-      setEscobaMessage(notice);
-
-      advanceEscobaTurn(isP1, remainingTable);
+      nextLastTaker = player;
     } else {
-      // Caso B: Descartar a la mesa
-      const newTable = [...escobaTable, selectedHandCard];
-      if (isP1) {
-        setEscobaHandP1((prev) => prev.filter((c) => c.id !== selectedHandCard.id));
-      } else {
-        setEscobaHandP2((prev) => prev.filter((c) => c.id !== selectedHandCard.id));
-      }
-      setEscobaTable(newTable);
-      setEscobaMessage(`🃏 ${currentName} no suma 15 y deja el ${RANK_NAMES[selectedHandCard.rank]} de ${SUIT_ICONS[selectedHandCard.suit].name} en la mesa`);
+      nextTable = [...currentTable, playedCard];
+      actionMessage = `🃏 ${playerName} deja el ${RANK_NAMES[playedCard.rank]} en la mesa`;
       playTone('harpa');
-
-      advanceEscobaTurn(isP1, newTable);
     }
 
+    const nextHandP1 = player === 'p1' ? currentHandP1.filter((c) => c.id !== playedCard.id) : currentHandP1;
+    const nextHandP2 = player === 'p2' ? currentHandP2.filter((c) => c.id !== playedCard.id) : currentHandP2;
+
+    // Actualizar estados sincronizados
+    setEscobaTable(nextTable);
+    setEscobaPileP1(nextPileP1);
+    setEscobaPileP2(nextPileP2);
+    setEscobaCountP1(nextCountP1);
+    setEscobaCountP2(nextCountP2);
+    setEscobaLastTaker(nextLastTaker);
+    setEscobaHandP1(nextHandP1);
+    setEscobaHandP2(nextHandP2);
+    setEscobaMessage(actionMessage);
     setSelectedHandCard(null);
     setSelectedTableCards([]);
-  };
 
-  // Avanzar turno y repartir nuevas manos si se acaban las 3 cartas
-  const advanceEscobaTurn = (wasP1: boolean, currentTableState: SpanishCard[]) => {
-    const nextTurn = wasP1 ? 'p2' : 'p1';
-
-    // Verificar si ambos jugadores se quedan sin cartas
-    const remainingP1Count = wasP1 ? escobaHandP1.length - 1 : escobaHandP1.length;
-    const remainingP2Count = !wasP1 ? escobaHandP2.length - 1 : escobaHandP2.length;
-
-    if (remainingP1Count === 0 && remainingP2Count === 0) {
-      if (escobaDeck.length >= 6) {
-        // Repartir 3 más a cada uno
-        const newP1 = escobaDeck.slice(0, 3);
-        const newP2 = escobaDeck.slice(3, 6);
-        const nextDeck = escobaDeck.slice(6);
+    // REPARTO AUTOMÁTICO: SI AMBOS SE QUEDAN SIN CARTAS
+    if (nextHandP1.length === 0 && nextHandP2.length === 0) {
+      if (currentDeck.length >= 6) {
+        const newP1 = currentDeck.slice(0, 3);
+        const newP2 = currentDeck.slice(3, 6);
+        const remainingDeck = currentDeck.slice(6);
 
         setTimeout(() => {
           setEscobaHandP1(newP1);
           setEscobaHandP2(newP2);
-          setEscobaDeck(nextDeck);
-          setEscobaMessage(`🎴 Se reparten 3 nuevas cartas a cada uno. Quedan ${nextDeck.length} en el mazo.`);
-        }, 1000);
+          setEscobaDeck(remainingDeck);
+          setEscobaTurn('p1');
+          setEscobaMessage(`🎴 ¡Mano finalizada! Se reparten automáticamente 3 nuevas cartas a cada jugador. Quedan ${remainingDeck.length} en el mazo.`);
+          playTone('peaceful_chime');
+        }, 750);
+        return;
       } else {
-        // Fin de la partida
+        // FIN DE LA PARTIDA Y RECUENTO OFICIAL
         setTimeout(() => {
-          finalizeEscobaRound(currentTableState);
-        }, 1200);
+          finalizeEscobaRound(nextTable, nextPileP1, nextPileP2, nextCountP1, nextCountP2, nextLastTaker);
+        }, 900);
         return;
       }
     }
 
+    // SI AÚN HAY CARTAS, CONTINUAR CON EL SIGUIENTE TURNO
+    const nextTurn = player === 'p1' ? 'p2' : 'p1';
     setEscobaTurn(nextTurn);
 
-    // Si es modo solitario y le toca a la máquina/pareja virtual
+    // TURNO DEL BOT EN MODO SOLITARIO
     if (escobaMode === 'solo' && nextTurn === 'p2') {
       setTimeout(() => {
-        executeBotEscobaMove(currentTableState);
-      }, 1500);
+        botPlayTurn(nextTable, nextHandP1, nextHandP2, currentDeck, nextPileP1, nextPileP2, nextCountP1, nextCountP2, nextLastTaker);
+      }, 750);
     }
   };
 
-  // Bot inteligente para Escoba en Solitario
-  const executeBotEscobaMove = (tableCards: SpanishCard[]) => {
-    setEscobaHandP2((currentHandP2) => {
-      if (currentHandP2.length === 0) return currentHandP2;
+  // Turno automático del Bot de la Pareja Virtual
+  const botPlayTurn = (
+    table: SpanishCard[],
+    handP1: SpanishCard[],
+    handP2: SpanishCard[],
+    deck: SpanishCard[],
+    pileP1: SpanishCard[],
+    pileP2: SpanishCard[],
+    countP1: number,
+    countP2: number,
+    lastTaker: 'p1' | 'p2' | null
+  ) => {
+    if (handP2.length === 0) return;
 
-      // Buscar si alguna carta suma 15
-      let bestPlay: { handCard: SpanishCard; tableSelection: SpanishCard[] } | null = null;
+    let bestCard: SpanishCard = handP2[0];
+    let bestSelection: SpanishCard[] = [];
+    let found15 = false;
 
-      for (const hCard of currentHandP2) {
-        // Probar combinaciones de mesa (1, 2, 3 o 4 cartas)
-        const target = 15 - hCard.value;
-        if (target <= 0) continue;
-
-        // Combinación individual
-        const singleMatch = tableCards.find((tc) => tc.value === target);
-        if (singleMatch) {
-          bestPlay = { handCard: hCard, tableSelection: [singleMatch] };
-          break;
-        }
-
-        // Combinación de 2 cartas
-        for (let i = 0; i < tableCards.length; i++) {
-          for (let j = i + 1; j < tableCards.length; j++) {
-            if (tableCards[i].value + tableCards[j].value === target) {
-              bestPlay = { handCard: hCard, tableSelection: [tableCards[i], tableCards[j]] };
-              break;
-            }
-          }
-          if (bestPlay) break;
-        }
-        if (bestPlay) break;
+    for (const card of handP2) {
+      const combs = findSumsOf15(card, table);
+      if (combs.length > 0) {
+        bestCard = card;
+        bestSelection = combs[0];
+        found15 = true;
+        break;
       }
+    }
 
-      if (bestPlay) {
-        const remainingTable = tableCards.filter(
-          (tc) => !bestPlay!.tableSelection.some((sc) => sc.id === tc.id)
-        );
-        const isSweep = remainingTable.length === 0;
-        const captured = [bestPlay.handCard, ...bestPlay.tableSelection];
+    if (!found15) {
+      // Si no hay 15, descartar la carta de menor riesgo (evitar tirar el 7 de oros)
+      const sorted = [...handP2].sort((a, b) => {
+        const is7OrosA = a.suit === 'oros' && a.rank === 7 ? 100 : 0;
+        const is7OrosB = b.suit === 'oros' && b.rank === 7 ? 100 : 0;
+        return (a.value + is7OrosA) - (b.value + is7OrosB);
+      });
+      bestCard = sorted[0];
+      bestSelection = [];
+    }
 
-        setEscobaPileP2((prev) => [...prev, ...captured]);
-        setEscobaTable(remainingTable);
-        setEscobaLastTaker('p2');
-
-        if (isSweep) {
-          setEscobaCountP2((c) => c + 1);
-          setEscobaMessage(`🧹 ¡La Pareja Virtual hace ESCOBA! (+1 Punto)`);
-          playTone('zen_bowl');
-        } else {
-          setEscobaMessage(`🤖 Tu Pareja suma 15 con el ${RANK_NAMES[bestPlay.handCard.rank]} y captura cartas`);
-          playTone('water');
-        }
-
-        advanceEscobaTurn(false, remainingTable);
-        return currentHandP2.filter((c) => c.id !== bestPlay!.handCard.id);
-      } else {
-        // Descartar la carta de menor valor
-        const discard = [...currentHandP2].sort((a, b) => a.value - b.value)[0];
-        const newTable = [...tableCards, discard];
-        setEscobaTable(newTable);
-        setEscobaMessage(`🤖 Tu Pareja deja el ${RANK_NAMES[discard.rank]} de ${SUIT_ICONS[discard.suit].name} en la mesa`);
-        playTone('harpa');
-
-        advanceEscobaTurn(false, newTable);
-        return currentHandP2.filter((c) => c.id !== discard.id);
-      }
-    });
+    executeEscobaMove(
+      'p2',
+      bestCard,
+      bestSelection,
+      table,
+      handP1,
+      handP2,
+      deck,
+      pileP1,
+      pileP2,
+      countP1,
+      countP2,
+      lastTaker
+    );
   };
 
-  // Finalizar partida y contar puntos de Escoba
-  const finalizeEscobaRound = (remainingTable: SpanishCard[]) => {
+  // Jugada iniciada por el usuario (P1)
+  const handlePlayEscobaCard = () => {
+    if (!selectedHandCard) return;
+
+    executeEscobaMove(
+      'p1',
+      selectedHandCard,
+      selectedTableCards,
+      escobaTable,
+      escobaHandP1,
+      escobaHandP2,
+      escobaDeck,
+      escobaPileP1,
+      escobaPileP2,
+      escobaCountP1,
+      escobaCountP2,
+      escobaLastTaker
+    );
+  };
+
+  // Jugada manual para P2 en modo 'couple' (dos jugadores en el mismo dispositivo)
+  const handlePlayEscobaCardP2 = (card: SpanishCard) => {
+    const combs = findSumsOf15(card, escobaTable);
+    const selection = combs.length > 0 ? combs[0] : [];
+    executeEscobaMove(
+      'p2',
+      card,
+      selection,
+      escobaTable,
+      escobaHandP1,
+      escobaHandP2,
+      escobaDeck,
+      escobaPileP1,
+      escobaPileP2,
+      escobaCountP1,
+      escobaCountP2,
+      escobaLastTaker
+    );
+  };
+
+  // Finalizar partida y recuento oficial según el reglamento de la Escoba
+  const finalizeEscobaRound = (
+    remainingTable: SpanishCard[],
+    p1Pile: SpanishCard[],
+    p2Pile: SpanishCard[],
+    countP1: number,
+    countP2: number,
+    lastTaker: 'p1' | 'p2' | null
+  ) => {
     setEscobaGameOver(true);
 
     // Las cartas sobrantes van al último que capturó
-    let finalP1Pile = [...escobaPileP1];
-    let finalP2Pile = [...escobaPileP2];
-    if (escobaLastTaker === 'p1') {
+    let finalP1Pile = [...p1Pile];
+    let finalP2Pile = [...p2Pile];
+    if (lastTaker === 'p1') {
       finalP1Pile = [...finalP1Pile, ...remainingTable];
       setEscobaPileP1(finalP1Pile);
-    } else if (escobaLastTaker === 'p2') {
+    } else if (lastTaker === 'p2') {
       finalP2Pile = [...finalP2Pile, ...remainingTable];
       setEscobaPileP2(finalP2Pile);
     }
     setEscobaTable([]);
 
-    // Cálculo tradicional de puntos de Escoba:
-    // 1. Escobas limpias
-    let scoreP1 = escobaCountP1;
-    let scoreP2 = escobaCountP2;
+    // Cálculo tradicional de puntos de Escoba
+    let scoreP1 = countP1;
+    let scoreP2 = countP2;
+    const detailsP1: string[] = [`Escobas limpias: ${countP1} pts`];
+    const detailsP2: string[] = [`Escobas limpias: ${countP2} pts`];
 
-    // 2. Mayoría de cartas (1 punto)
-    if (finalP1Pile.length > finalP2Pile.length) scoreP1 += 1;
-    else if (finalP2Pile.length > finalP1Pile.length) scoreP2 += 1;
+    // Mayoría de cartas (>20)
+    if (finalP1Pile.length > finalP2Pile.length) {
+      scoreP1 += 1;
+      detailsP1.push(`Mayoría de cartas (${finalP1Pile.length}): +1 pt`);
+    } else if (finalP2Pile.length > finalP1Pile.length) {
+      scoreP2 += 1;
+      detailsP2.push(`Mayoría de cartas (${finalP2Pile.length}): +1 pt`);
+    }
 
-    // 3. Mayoría de oros (1 punto)
+    // Mayoría de oros (>5)
     const orosP1 = finalP1Pile.filter((c) => c.suit === 'oros').length;
     const orosP2 = finalP2Pile.filter((c) => c.suit === 'oros').length;
-    if (orosP1 > orosP2) scoreP1 += 1;
-    else if (orosP2 > orosP1) scoreP2 += 1;
+    if (orosP1 > orosP2) {
+      scoreP1 += 1;
+      detailsP1.push(`Mayoría de oros (${orosP1}): +1 pt`);
+    } else if (orosP2 > orosP1) {
+      scoreP2 += 1;
+      detailsP2.push(`Mayoría de oros (${orosP2}): +1 pt`);
+    }
 
-    // 4. El Siete de Oros / Velos (1 punto)
+    // El Siete de Oros / Velo
     const hasSieteOrosP1 = finalP1Pile.some((c) => c.suit === 'oros' && c.rank === 7);
     const hasSieteOrosP2 = finalP2Pile.some((c) => c.suit === 'oros' && c.rank === 7);
-    if (hasSieteOrosP1) scoreP1 += 1;
-    if (hasSieteOrosP2) scoreP2 += 1;
+    if (hasSieteOrosP1) {
+      scoreP1 += 1;
+      detailsP1.push(`El Siete de Oros (El Velo): +1 pt`);
+    }
+    if (hasSieteOrosP2) {
+      scoreP2 += 1;
+      detailsP2.push(`El Siete de Oros (El Velo): +1 pt`);
+    }
 
-    // 5. Mayoría de sietes (1 punto)
+    // Mayoría de sietes
     const sietesP1 = finalP1Pile.filter((c) => c.rank === 7).length;
     const sietesP2 = finalP2Pile.filter((c) => c.rank === 7).length;
-    if (sietesP1 > sietesP2) scoreP1 += 1;
-    else if (sietesP2 > sietesP1) scoreP2 += 1;
+    if (sietesP1 > sietesP2) {
+      scoreP1 += 1;
+      detailsP1.push(`Mayoría de sietes (${sietesP1}): +1 pt`);
+    } else if (sietesP2 > sietesP1) {
+      scoreP2 += 1;
+      detailsP2.push(`Mayoría de sietes (${sietesP2}): +1 pt`);
+    }
 
     trigger3DConfetti();
     playTone('cathedral_bells');
 
-    const winnerName = scoreP1 > scoreP2
+    const winner = scoreP1 > scoreP2
       ? (currentDisplayMe.name || 'Jugador 1')
       : scoreP2 > scoreP1
-      ? (escobaMode === 'solo' ? 'Pareja Virtual' : (currentDisplayPartner.name || 'Jugador 2'))
+      ? (escobaMode === 'solo' ? 'Pareja Virtual 🤖' : (currentDisplayPartner.name || 'Jugador 2'))
       : '¡Empate!';
 
-    setEscobaMessage(
-      `🏆 ¡Fin de la partida! Ganador: ${winnerName} (${scoreP1} pts vs ${scoreP2} pts). Cartas: ${finalP1Pile.length} vs ${finalP2Pile.length}, Oros: ${orosP1} vs ${orosP2}.`
-    );
+    setEscobaScores({
+      scoreP1,
+      scoreP2,
+      detailsP1,
+      detailsP2,
+      winnerName: winner,
+    });
+
+    setEscobaMessage(`🏆 ¡Fin de partida! ${winner} gana con ${Math.max(scoreP1, scoreP2)} puntos.`);
   };
 
   // -----------------------------------------------------------------------
@@ -589,8 +725,8 @@ export const MinigamesSection: React.FC = () => {
   };
 
   // Jugar carta de UNO
-  const handlePlayUnoCard = (card: UnoCard) => {
-    if (unoTurn !== 'p1') return;
+  const handlePlayUnoCard = (card: UnoCard, player: 'p1' | 'p2' = 'p1') => {
+    if (unoTurn !== player) return;
     if (!canPlayUnoCard(card)) {
       setUnoMessage('⚠️ Esa carta no coincide con el color (' + UNO_COLOR_STYLES[unoActiveColor].name + ') ni con el número.');
       return;
@@ -602,7 +738,7 @@ export const MinigamesSection: React.FC = () => {
       return;
     }
 
-    executeUnoCardPlacement(card, card.color, 'p1');
+    executeUnoCardPlacement(card, card.color, player);
   };
 
   const handleSelectWildColor = (chosenColor: UnoColor) => {
@@ -1061,23 +1197,25 @@ export const MinigamesSection: React.FC = () => {
           </div>
 
           {/* Cartas de la Pareja / Jugador 2 (Boca abajo en solitario o activas en modo pareja) */}
-          <div className="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
+          <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
             <span className="text-xs font-bold text-white/70">
               Mano de {escobaMode === 'solo' ? 'Pareja Virtual 🤖' : (currentDisplayPartner.name || 'Jugador 2')}:
+              {escobaTurn === 'p2' && <span className="ml-2 text-rose-400 font-black animate-pulse">¡Su Turno!</span>}
             </span>
             <div className="flex gap-2">
               {escobaHandP2.map((card, idx) => (
-                <div
-                  key={card.id || idx}
-                  className="w-12 h-18 rounded-xl bg-gradient-to-br from-red-950 via-slate-900 to-black border border-white/20 shadow-md flex items-center justify-center text-xs font-bold text-white/40"
-                >
+                <div key={card.id || idx}>
                   {escobaMode === 'couple' && escobaTurn === 'p2' ? (
-                    <div className="text-center">
-                      <span className="text-base">{SUIT_ICONS[card.suit].emoji}</span>
-                      <div className="text-[10px] text-white font-bold">{RANK_NAMES[card.rank]}</div>
-                    </div>
+                    <SpanishCardView
+                      card={card}
+                      size="sm"
+                      onClick={() => handlePlayEscobaCardP2(card)}
+                    />
                   ) : (
-                    <span>🎴</span>
+                    <div className="w-14 h-22 sm:w-16 sm:h-24 rounded-2xl bg-gradient-to-br from-red-950 via-slate-900 to-black border-2 border-amber-600/50 shadow-md flex flex-col items-center justify-center text-xs font-bold text-amber-300 select-none">
+                      <span className="text-base">🎴</span>
+                      <span className="text-[9px] font-black text-amber-400/80 mt-1 font-serif">BARAJA</span>
+                    </div>
                   )}
                 </div>
               ))}
@@ -1085,45 +1223,33 @@ export const MinigamesSection: React.FC = () => {
           </div>
 
           {/* LA MESA (CARTAS EN JUEGO) */}
-          <div className="p-5 rounded-3xl bg-gradient-to-b from-emerald-950/40 via-black/60 to-emerald-950/40 border-2 border-emerald-500/30 text-center space-y-3 shadow-inner">
+          <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-b from-emerald-950/60 via-black/75 to-emerald-950/60 border-2 border-emerald-500/40 text-center space-y-3.5 shadow-inner">
             <div className="flex items-center justify-between text-xs font-black text-emerald-300 uppercase tracking-wider">
               <span>Cartas en la Mesa ({escobaTable.length}):</span>
-              <span>Suma seleccionada: <strong className={currentEscobaSum === 15 ? 'text-lime-400 text-sm' : 'text-amber-300 text-sm'}>{currentEscobaSum} / 15</strong></span>
+              <span>
+                Suma seleccionada:{' '}
+                <strong className={currentEscobaSum === 15 ? 'text-lime-400 text-sm font-black' : 'text-amber-300 text-sm'}>
+                  {currentEscobaSum} / 15
+                </strong>
+              </span>
             </div>
 
             {escobaTable.length === 0 ? (
-              <div className="py-6 text-white/40 text-xs italic">
-                La mesa está vacía (¡Se hizo Escoba!). Tira una carta de tu mano para iniciar.
+              <div className="py-8 text-white/60 text-xs italic font-medium bg-black/30 rounded-2xl border border-white/5">
+                🧹 ¡La mesa está completamente limpia (¡Se hizo Escoba!)! Tira una carta de tu mano para abrir la mesa.
               </div>
             ) : (
-              <div className="flex flex-wrap items-center justify-center gap-2.5 py-2">
+              <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 py-2">
                 {escobaTable.map((card) => {
                   const isSelected = selectedTableCards.some((sc) => sc.id === card.id);
-                  const suitInfo = SUIT_ICONS[card.suit];
                   return (
-                    <motion.button
+                    <SpanishCardView
                       key={card.id}
-                      type="button"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      card={card}
+                      isSelected={isSelected}
+                      size="md"
                       onClick={() => toggleSelectTableCard(card)}
-                      className={`w-18 h-26 rounded-2xl border-2 flex flex-col justify-between p-2 shadow-lg transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-amber-100 text-slate-950 border-amber-400 scale-105 shadow-[0_0_15px_rgba(251,191,36,0.6)] ring-2 ring-amber-300'
-                          : 'bg-[#faf8f5] text-slate-900 border-slate-300 hover:border-amber-400'
-                      }`}
-                    >
-                      <div className="flex justify-between items-center text-xs font-black">
-                        <span>{card.rank}</span>
-                        <span>{suitInfo.emoji}</span>
-                      </div>
-                      <div className="text-xl my-auto text-center font-black">
-                        {suitInfo.emoji}
-                      </div>
-                      <div className="text-[10px] font-bold text-slate-600 truncate text-center">
-                        Val: {card.value}
-                      </div>
-                    </motion.button>
+                    />
                   );
                 })}
               </div>
@@ -1131,44 +1257,27 @@ export const MinigamesSection: React.FC = () => {
           </div>
 
           {/* TU MANO (JUGADOR 1) */}
-          <div className="p-4 rounded-3xl bg-black/40 border border-white/10 space-y-3">
+          <div className="p-5 rounded-3xl bg-black/50 border border-white/15 space-y-3.5 shadow-xl">
             <div className="flex items-center justify-between">
               <span className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
                 <span>Tu Mano ({currentDisplayMe.name || 'Yo'}):</span>
-                {escobaTurn === 'p1' && <span className="text-[10px] text-lime-400 font-bold animate-pulse">¡Tu Turno!</span>}
+                {escobaTurn === 'p1' && <span className="text-[11px] text-lime-400 font-black animate-pulse bg-lime-950/60 px-2 py-0.5 rounded-full border border-lime-400/40">👉 ¡Tu Turno!</span>}
               </span>
-              <span className="text-xs text-white/50">Mazo restante: {escobaDeck.length} cartas</span>
+              <span className="text-xs text-white/70 font-semibold">Mazo restante: {escobaDeck.length} cartas</span>
             </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-3">
+            <div className="flex flex-wrap items-center justify-center gap-3.5 sm:gap-4">
               {escobaHandP1.map((card) => {
                 const isSelected = selectedHandCard?.id === card.id;
-                const suitInfo = SUIT_ICONS[card.suit];
                 return (
-                  <motion.button
+                  <SpanishCardView
                     key={card.id}
-                    type="button"
-                    whileHover={{ scale: 1.08 }}
-                    whileTap={{ scale: 0.95 }}
+                    card={card}
+                    isSelected={isSelected}
+                    size="lg"
                     disabled={escobaTurn !== 'p1' || escobaGameOver}
-                    onClick={() => setSelectedHandCard(isSelected ? null : card)}
-                    className={`w-20 h-28 rounded-2xl border-2 flex flex-col justify-between p-2 shadow-xl transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-amber-200 text-slate-950 border-amber-500 scale-110 shadow-[0_0_20px_rgba(245,158,11,0.8)] ring-4 ring-amber-400/60'
-                        : 'bg-[#faf8f5] text-slate-900 border-slate-300 hover:border-amber-400'
-                    }`}
-                  >
-                    <div className="flex justify-between items-center text-xs font-black">
-                      <span>{card.rank}</span>
-                      <span>{suitInfo.emoji}</span>
-                    </div>
-                    <div className="text-2xl text-center my-auto">
-                      {suitInfo.emoji}
-                    </div>
-                    <div className="text-[10px] font-black text-slate-800 text-center">
-                      {RANK_NAMES[card.rank]}
-                    </div>
-                  </motion.button>
+                    onClick={() => handleSelectHandCard(card)}
+                  />
                 );
               })}
             </div>
@@ -1189,14 +1298,18 @@ export const MinigamesSection: React.FC = () => {
                 onClick={handlePlayEscobaCard}
                 className={`w-full py-4 rounded-3xl font-black text-sm flex items-center justify-center gap-2 cursor-pointer shadow-lg transition-all ${
                   currentEscobaSum === 15 && selectedTableCards.length > 0
-                    ? 'bg-gradient-to-r from-lime-500 to-emerald-600 text-slate-950 shadow-lime-500/40 ring-2 ring-lime-300'
+                    ? 'bg-gradient-to-r from-lime-500 to-emerald-600 text-slate-950 shadow-lime-500/40 ring-2 ring-lime-300 scale-102'
                     : 'bg-white/20 hover:bg-white/30 text-white'
                 }`}
               >
                 {currentEscobaSum === 15 && selectedTableCards.length > 0 ? (
                   <>
                     <span>✅</span>
-                    <span>¡Suma 15! Capturar Cartas {selectedTableCards.length === escobaTable.length ? '(¡ESCOBA!)' : ''}</span>
+                    <span>
+                      {selectedTableCards.length === escobaTable.length
+                        ? '🧹 ¡¡HACER ESCOBA!! Limpiar Mesa (+1 Punto)'
+                        : `¡Suma 15! Capturar ${selectedTableCards.length + 1} Cartas`}
+                    </span>
                   </>
                 ) : (
                   <>
@@ -1205,6 +1318,66 @@ export const MinigamesSection: React.FC = () => {
                   </>
                 )}
               </motion.button>
+            )}
+
+            {/* PANTALLA DE RECUENTO FINAL DE PUNTOS DE ESCOBA */}
+            {escobaGameOver && escobaScores && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-amber-950/80 via-black to-purple-950/80 border-2 border-amber-400/60 shadow-2xl space-y-4 text-center"
+              >
+                <div className="w-14 h-14 mx-auto rounded-3xl bg-amber-500/20 border-2 border-amber-400 flex items-center justify-center text-3xl shadow-lg">
+                  🏆
+                </div>
+                <div>
+                  <h4 className="text-xl font-black text-amber-200 font-heading">
+                    ¡Fin de la Partida de Escoba!
+                  </h4>
+                  <p className="text-sm font-bold text-white mt-0.5">
+                    Ganador: <span className="text-amber-300 font-black">{escobaScores.winnerName}</span>
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-left">
+                  <div className="p-3.5 rounded-2xl bg-white/10 border border-white/15">
+                    <h5 className="text-xs font-black text-lime-300 pb-1.5 border-b border-white/10">
+                      {currentDisplayMe.name || 'Jugador 1'}: {escobaScores.scoreP1} Pts
+                    </h5>
+                    <ul className="text-[11px] text-white/80 space-y-1 mt-2">
+                      {escobaScores.detailsP1.map((d, i) => (
+                        <li key={i} className="flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-lime-400" />
+                          <span>{d}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-white/10 border border-white/15">
+                    <h5 className="text-xs font-black text-rose-300 pb-1.5 border-b border-white/10">
+                      {escobaMode === 'solo' ? 'Pareja Virtual 🤖' : (currentDisplayPartner.name || 'Jugador 2')}: {escobaScores.scoreP2} Pts
+                    </h5>
+                    <ul className="text-[11px] text-white/80 space-y-1 mt-2">
+                      {escobaScores.detailsP2.map((d, i) => (
+                        <li key={i} className="flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                          <span>{d}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={startNewEscobaGame}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-amber-500 text-slate-950 font-black text-sm flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-98 transition-all"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>🔄 Barajar de Nuevo y Jugar Otra Partida</span>
+                </button>
+              </motion.div>
             )}
           </div>
         </div>
@@ -1279,13 +1452,21 @@ export const MinigamesSection: React.FC = () => {
               <span>Mano de {unoMode === 'solo' ? 'Pareja Virtual 🤖' : (currentDisplayPartner.name || 'Jugador 2')}:</span>
               {unoSaidP2 && <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-red-600 text-white animate-bounce">¡CANTÓ UNO! 🗣️</span>}
             </div>
-            <div className="flex gap-1.5 overflow-x-auto max-w-[60%]">
+            <div className="flex gap-2 overflow-x-auto max-w-[65%] py-1">
               {unoHandP2.map((card, idx) => (
-                <div
-                  key={card.id || idx}
-                  className="w-10 h-16 rounded-xl bg-slate-900 border-2 border-white/20 shadow-md flex items-center justify-center shrink-0"
-                >
-                  <span className="text-xs font-black text-rose-500 font-heading">UNO</span>
+                <div key={card.id || idx} className="shrink-0">
+                  {unoMode === 'couple' && unoTurn === 'p2' ? (
+                    <UnoCardView
+                      card={card}
+                      size="sm"
+                      disabled={!canPlayUnoCard(card) || unoGameOver}
+                      onClick={() => handlePlayUnoCard(card, 'p2')}
+                    />
+                  ) : (
+                    <div className="w-12 h-18 rounded-xl bg-slate-900 border-2 border-white/30 shadow-md flex items-center justify-center">
+                      <span className="text-xs font-black text-rose-500 font-heading">UNO</span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -1312,40 +1493,16 @@ export const MinigamesSection: React.FC = () => {
             {/* Pozo de Descarte Activo */}
             <div className="flex flex-col items-center">
               {topDiscard ? (
-                <motion.div
-                  key={topDiscard.id}
-                  initial={{ scale: 0.8, rotate: -10 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  className={`w-24 h-36 rounded-3xl ${UNO_COLOR_STYLES[unoActiveColor].bg} border-4 border-white shadow-[0_20px_40px_rgba(0,0,0,0.7)] flex flex-col justify-between p-2.5 text-white select-none relative`}
-                >
-                  <div className="flex justify-between items-center text-xs font-black">
-                    <span>{topDiscard.value !== undefined ? topDiscard.value : topDiscard.type}</span>
-                    <span>🌈</span>
-                  </div>
-                  <div className="w-16 h-16 rounded-full bg-white/20 border-2 border-white/40 mx-auto flex items-center justify-center text-2xl font-black font-heading shadow-inner">
-                    {topDiscard.type === 'number'
-                      ? topDiscard.value
-                      : topDiscard.type === 'draw2'
-                      ? '+2'
-                      : topDiscard.type === 'skip'
-                      ? '🚫'
-                      : topDiscard.type === 'reverse'
-                      ? '🔄'
-                      : topDiscard.type === 'wild4'
-                      ? '+4'
-                      : '🌈'}
-                  </div>
-                  <div className="text-[10px] font-black text-center tracking-wider uppercase">
-                    {UNO_COLOR_STYLES[unoActiveColor].name}
-                  </div>
-                </motion.div>
+                <div className="scale-105">
+                  <UnoCardView card={{ ...topDiscard, color: unoActiveColor }} size="lg" />
+                </div>
               ) : (
                 <div className="w-24 h-36 rounded-3xl bg-white/10 border-2 border-dashed border-white/30 flex items-center justify-center text-xs text-white/50">
                   Vacío
                 </div>
               )}
               <span className="text-[11px] font-black text-white/90 mt-2 px-3 py-1 rounded-full bg-black/50 border border-white/20">
-                Color: <strong className={UNO_COLOR_STYLES[unoActiveColor].text}>{UNO_COLOR_STYLES[unoActiveColor].name}</strong>
+                Color activo: <strong className={UNO_COLOR_STYLES[unoActiveColor].text}>{UNO_COLOR_STYLES[unoActiveColor].name}</strong>
               </span>
             </div>
           </div>
@@ -1400,42 +1557,17 @@ export const MinigamesSection: React.FC = () => {
               )}
             </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-2.5">
+            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
               {unoHandP1.map((card) => {
                 const playable = canPlayUnoCard(card) && unoTurn === 'p1';
-                const style = UNO_COLOR_STYLES[card.color];
                 return (
-                  <motion.button
+                  <UnoCardView
                     key={card.id}
-                    type="button"
-                    whileHover={{ scale: 1.1, y: -5 }}
-                    whileTap={{ scale: 0.95 }}
+                    card={card}
+                    size="lg"
                     disabled={!playable || unoGameOver}
                     onClick={() => handlePlayUnoCard(card)}
-                    className={`w-18 h-28 rounded-2xl ${style.bg} border-2 ${
-                      playable ? 'border-white ring-2 ring-white/50 cursor-pointer' : 'border-white/20 opacity-50 cursor-not-allowed'
-                    } shadow-xl flex flex-col justify-between p-1.5 text-white select-none transition-all`}
-                  >
-                    <div className="flex justify-between items-center text-[11px] font-black">
-                      <span>{card.value !== undefined ? card.value : card.type}</span>
-                    </div>
-                    <div className="w-10 h-10 rounded-full bg-white/20 border border-white/40 mx-auto flex items-center justify-center text-base font-black font-heading shadow-inner">
-                      {card.type === 'number'
-                        ? card.value
-                        : card.type === 'draw2'
-                        ? '+2'
-                        : card.type === 'skip'
-                        ? '🚫'
-                        : card.type === 'reverse'
-                        ? '🔄'
-                        : card.type === 'wild4'
-                        ? '+4'
-                        : '🌈'}
-                    </div>
-                    <div className="text-[9px] font-black text-center truncate">
-                      {style.name}
-                    </div>
-                  </motion.button>
+                  />
                 );
               })}
             </div>

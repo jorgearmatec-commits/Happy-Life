@@ -312,12 +312,36 @@ const MainAppContent: React.FC = () => {
             }}
           >
             {settings.customBgImage ? (
-              <img
-                src={settings.customBgImage}
-                alt="Fondo Personalizado Fijo"
-                className="w-full h-full object-cover object-center pointer-events-none select-none"
-                style={{ width: '100vw', height: '100vh', objectFit: 'cover' }}
-              />
+              settings.customBgFit === 'cover' ? (
+                <img
+                  src={settings.customBgImage}
+                  alt="Fondo Personalizado Fijo"
+                  className="w-full h-full object-cover object-center pointer-events-none select-none"
+                  style={{ width: '100vw', height: '100vh', objectFit: 'cover' }}
+                />
+              ) : settings.customBgFit === 'fill' ? (
+                <img
+                  src={settings.customBgImage}
+                  alt="Fondo Personalizado Fijo"
+                  className="w-full h-full object-fill object-center pointer-events-none select-none"
+                  style={{ width: '100vw', height: '100vh', objectFit: 'fill' }}
+                />
+              ) : (
+                /* Modo Contain por defecto: Foto 100% visible sin cortes con fondo ambiental difuso suave */
+                <div className="relative w-screen h-screen flex items-center justify-center overflow-hidden bg-black/95">
+                  <img
+                    src={settings.customBgImage}
+                    alt="Fondo ambiental difuso"
+                    className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-110 pointer-events-none"
+                  />
+                  <img
+                    src={settings.customBgImage}
+                    alt="Fondo Personalizado Completo Fijo"
+                    className="relative max-w-full max-h-full object-contain pointer-events-none select-none z-10"
+                    style={{ maxWidth: '100vw', maxHeight: '100vh', objectFit: 'contain' }}
+                  />
+                </div>
+              )
             ) : settings.backgroundTheme?.startsWith('#') || settings.backgroundTheme?.startsWith('bg-[#') ? (
               <div
                 className="w-full h-full"
@@ -488,6 +512,7 @@ const MainAppContent: React.FC = () => {
       <BodyDoublingModal
         isOpen={isBodyDoublingOpen}
         onClose={() => setIsBodyDoublingOpen(false)}
+        onOpen={() => setIsBodyDoublingOpen(true)}
         hideFloatingButton={true}
       />
       <MiniChatModal

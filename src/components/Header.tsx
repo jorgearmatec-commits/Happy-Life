@@ -15,24 +15,27 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenExit, onOp
   return (
     <header className="w-full bg-black/40 backdrop-blur-md border-b border-white/10 px-3 sm:px-4 py-3 select-none transition-all">
       <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
-        {/* Left: Corazón (3D WebGL o 2D ligero en modo ahorro de RAM) */}
+        {/* Left: Logo Happy Life Duo y Corazón */}
         <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-          {settings.lowEndDeviceMode ? (
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-rose-600 to-pink-500 flex items-center justify-center shadow-lg shrink-0 animate-pulse">
-              <Heart className="w-6 h-6 fill-white text-white drop-shadow-md" />
-            </div>
-          ) : (
-            <ThreeHeart size={48} className="shrink-0" />
-          )}
+          <img
+            src="/icon.svg"
+            alt="Happy Life Duo"
+            className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl shadow-lg shrink-0 object-cover border border-white/20"
+          />
 
           <div className="flex flex-col min-w-0">
-            <h1 className="text-lg sm:text-2xl font-black tracking-tight text-white font-heading drop-shadow-sm truncate">
-              Nuestro Lugar Seguro
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg sm:text-2xl font-black tracking-tight text-white font-heading drop-shadow-sm truncate">
+                Happy Life Duo
+              </h1>
+              <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                Oficial
+              </span>
+            </div>
             <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-white/60">
               <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
               <span className="truncate">
-                {firebaseUser ? 'Sincronizado con Google' : 'Espacio Seguro Privado'}
+                Nuestro Lugar Seguro • {firebaseUser ? 'Sincronizado con Google' : 'Espacio Privado'}
               </span>
             </div>
           </div>

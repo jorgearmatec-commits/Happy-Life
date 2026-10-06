@@ -1,53 +1,29 @@
 import React, { useState } from 'react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, AlertCircle, Sparkles, Bell } from 'lucide-react';
+import {
+  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  Bell,
+  HelpCircle,
+  ExternalLink,
+  Bot
+} from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ModalPortal } from './ModalPortal';
+import { getDayInfo, MONTH_NAMES_ES, DayInfo } from '../data/calendarOnomastics';
+import { GeminiQuickModal } from './GeminiQuickModal';
 
-// Commemorative days and onomastics database for rich experience
-const DAY_COMMEMORATIONS: Record<number, { onomastic: string; commemoration: string }> = {
-  1: { onomastic: 'Teresa del Niño Jesús', commemoration: 'Día Internacional del Café y del Amor Verdadero' },
-  2: { onomastic: 'Ángeles Custodios', commemoration: 'Día Internacional de la No Violencia' },
-  3: { onomastic: 'Francisco de Borja', commemoration: 'Día de la Convivencia y del Abrazo Sincero' },
-  4: { onomastic: 'Francisco de Asís', commemoration: 'Día Mundial de los Animales y Compañeros de Vida' },
-  5: { onomastic: 'Faustina Kowalska', commemoration: 'Día Mundial de las y los Docentes' },
-  6: { onomastic: 'Bruno de Colonia', commemoration: 'Día del Hábitat y del Hogar Seguro' },
-  7: { onomastic: 'Rosario', commemoration: 'Día de la Calma Interior y Salud Mental' },
-  8: { onomastic: 'Pelagia de Antioquía', commemoration: 'Día de la Comunicación Afectiva' },
-  9: { onomastic: 'Dionisio', commemoration: 'Día Mundial del Correo y Cartas de Amor' },
-  10: { onomastic: 'Tomás de Villanueva', commemoration: 'Día Mundial de la Salud Mental' },
-  11: { onomastic: 'Juan XXIII', commemoration: 'Día Internacional de la Niña' },
-  12: { onomastic: 'Pilar', commemoration: 'Día de la Diversidad y Encuentro de Culturas' },
-  13: { onomastic: 'Eduardo', commemoration: 'Día del Diálogo en Pareja' },
-  14: { onomastic: 'Calixto', commemoration: 'Día de la Paciencia y Escucha Activa' },
-  15: { onomastic: 'Teresa de Jesús', commemoration: 'Día de las Manos Entrelazadas' },
-  16: { onomastic: 'Margarita María Alacoque', commemoration: 'Día Mundial de la Alimentación' },
-  17: { onomastic: 'Ignacio de Antioquía', commemoration: 'Día de la Resolución Pacífica de Conflictos' },
-  18: { onomastic: 'Lucas Evangelista', commemoration: 'Día del Acompañamiento Mutuo' },
-  19: { onomastic: 'Pedro de Alcántara', commemoration: 'Día de la Esperanza y Valentía' },
-  20: { onomastic: 'Irene', commemoration: 'Día de la Paz y la Calma Sensorial' },
-  21: { onomastic: 'Úrsula', commemoration: 'Día de la Mirada Amorosa' },
-  22: { onomastic: 'Juan Pablo', commemoration: 'Día del Respeto y la Empatía' },
-  23: { onomastic: 'Juan de Capistrano', commemoration: 'Día de la Validación Emocional' },
-  24: { onomastic: 'Rafael Arcángel', commemoration: 'Día de las Naciones Unidas' },
-  25: { onomastic: 'Crispín', commemoration: 'Día de la Creatividad Compartida' },
-  26: { onomastic: 'Evaristo', commemoration: 'Día del Descanso Reparador' },
-  27: { onomastic: 'Vicente', commemoration: 'Día de los Recuerdos Felices' },
-  28: { onomastic: 'Judas Tadeo', commemoration: 'Día de la Confianza Inquebrantable' },
-  29: { onomastic: 'Narciso', commemoration: 'Día del Cuidado del Sistema Nervioso' },
-  30: { onomastic: 'Germán', commemoration: 'Día de la Alegría Simple' },
-  31: { onomastic: 'Quintín', commemoration: 'Noche de Celebración y Dulzura' },
-};
+interface CalendarSectionProps {
+  embedded?: boolean;
+}
 
-const MONTH_NAMES = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-];
-
-export const CalendarSection: React.FC = () => {
+export const CalendarSection: React.FC<CalendarSectionProps> = ({ embedded = false }) => {
   const { reminders, alarms } = useApp();
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [isGeminiModalOpen, setIsGeminiModalOpen] = useState(false);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -55,9 +31,8 @@ export const CalendarSection: React.FC = () => {
   // Days in month
   const totalDays = new Date(year, month + 1, 0).getDate();
 
-  // Day of week for 1st day of month (0 = Sun, 1 = Mon, ..., 6 = Sat)
+  // First day offset (Monday = 0)
   const firstDayRaw = new Date(year, month, 1).getDay();
-  // We need Monday as first day: Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
   const firstDayMondayOffset = (firstDayRaw + 6) % 7;
 
   const prevMonth = () => {
@@ -68,9 +43,13 @@ export const CalendarSection: React.FC = () => {
     setCurrentDate(new Date(year, month + 1, 1));
   };
 
-  const selectedCommemoration = selectedDay ? DAY_COMMEMORATIONS[selectedDay] : null;
+  const goToToday = () => {
+    const today = new Date();
+    setCurrentDate(today);
+    setSelectedDay(today.getDate());
+  };
 
-  // Real events for day
+  // Real events for day (STRICT: only user created alarms and reminders)
   const getDayEvents = (dayNum: number) => {
     const dayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
     const dayRems = (reminders || []).filter(
@@ -84,30 +63,55 @@ export const CalendarSection: React.FC = () => {
     return getDayEvents(dayNum).count > 0;
   };
 
+  // Información del día actual o seleccionado
+  const displayDayNum = selectedDay || (month === new Date().getMonth() && year === new Date().getFullYear() ? new Date().getDate() : 1);
+  const currentDayInfo: DayInfo = getDayInfo(month, displayDayNum);
+
   return (
     <section className="w-full space-y-4">
-      {/* Título solo "Calendario" icono mini calendario */}
-      <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white shadow-md">
-          <CalendarIcon className="w-4 h-4" />
+      {/* Título de sección (si no está embebido) */}
+      {!embedded && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-2xl bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center text-cyan-300 shadow-md">
+              <CalendarIcon className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-white font-heading tracking-tight">
+                Calendario de Alarmas y Recordatorios
+              </h3>
+              <p className="text-xs text-white/60">
+                Sincronización de eventos, onomásticos y curiosidades de Google
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={goToToday}
+            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-cyan-200 text-xs font-bold border border-white/15 transition-all cursor-pointer"
+          >
+            Hoy
+          </button>
         </div>
-        <h3 className="text-xl font-black text-white font-heading tracking-tight">
-          Calendario
-        </h3>
-      </div>
+      )}
 
-      {/* Diseño tradicional fondo blanco/marfil números negros, domingos/feriados rojo, Lunes primer día */}
-      <div className="rounded-[2.5rem] bg-[#f8fafc] text-slate-900 p-6 sm:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-slate-300 select-none">
+      {/* Tarjeta Calendario Principal */}
+      <div className="rounded-[2.5rem] bg-[#f8fafc] text-slate-900 p-5 sm:p-7 shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-slate-300 select-none">
         {/* Month Navigation */}
-        <div className="flex items-center justify-between pb-6 mb-4 border-b border-slate-200">
-          <h4 className="text-2xl font-black font-heading text-slate-900 tracking-tight">
-            {MONTH_NAMES[month]} {year}
-          </h4>
+        <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-200">
           <div className="flex items-center gap-2">
+            <h4 className="text-2xl font-black font-heading text-slate-900 tracking-tight">
+              {MONTH_NAMES_ES[month]} {year}
+            </h4>
+            <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+              Lunes primero
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={prevMonth}
-              className="p-2 rounded-xl bg-slate-200/80 hover:bg-slate-300 active:scale-95 text-slate-800 transition-colors cursor-pointer"
+              className="p-2 rounded-xl bg-slate-200 hover:bg-slate-300 active:scale-95 text-slate-800 transition-colors cursor-pointer"
               title="Mes anterior"
             >
               <ChevronLeft className="w-5 h-5" />
@@ -115,7 +119,7 @@ export const CalendarSection: React.FC = () => {
             <button
               type="button"
               onClick={nextMonth}
-              className="p-2 rounded-xl bg-slate-200/80 hover:bg-slate-300 active:scale-95 text-slate-800 transition-colors cursor-pointer"
+              className="p-2 rounded-xl bg-slate-200 hover:bg-slate-300 active:scale-95 text-slate-800 transition-colors cursor-pointer"
               title="Mes siguiente"
             >
               <ChevronRight className="w-5 h-5" />
@@ -124,7 +128,7 @@ export const CalendarSection: React.FC = () => {
         </div>
 
         {/* Days of week header (Lunes primer día, Domingos en rojo) */}
-        <div className="grid grid-cols-7 gap-2 text-center text-xs font-black uppercase tracking-wider mb-2">
+        <div className="grid grid-cols-7 gap-1.5 text-center text-xs font-black uppercase tracking-wider mb-2">
           <span className="text-slate-600">Lun</span>
           <span className="text-slate-600">Mar</span>
           <span className="text-slate-600">Mié</span>
@@ -134,20 +138,24 @@ export const CalendarSection: React.FC = () => {
           <span className="text-rose-600 font-extrabold">Dom</span>
         </div>
 
-        {/* Grid 30/31 días. Sin "san, santa" en celda. Icono 🚨 si hay evento. */}
+        {/* Grid de días: SOLO ICONOS CUANDO EXISTA EVENTO REAL */}
         <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-center">
-          {/* Empty offset padding for days before the 1st */}
+          {/* Espacios vacíos antes del primer día del mes */}
           {Array.from({ length: firstDayMondayOffset }).map((_, idx) => (
             <div key={`empty-${idx}`} className="h-14 sm:h-16" />
           ))}
 
-          {/* Month Days */}
+          {/* Días del mes */}
           {Array.from({ length: totalDays }).map((_, idx) => {
             const dayNum = idx + 1;
-            // Day of week index for this day
             const dayOfWeek = (firstDayMondayOffset + idx) % 7;
             const isSunday = dayOfWeek === 6;
-            const hasEvent = dayHasEvent(dayNum);
+            const eventData = getDayEvents(dayNum);
+            const isSelected = selectedDay === dayNum;
+            const isToday =
+              dayNum === new Date().getDate() &&
+              month === new Date().getMonth() &&
+              year === new Date().getFullYear();
 
             return (
               <button
@@ -155,41 +163,137 @@ export const CalendarSection: React.FC = () => {
                 type="button"
                 onClick={() => setSelectedDay(dayNum)}
                 className={`h-14 sm:h-16 rounded-2xl p-1.5 flex flex-col items-center justify-between border transition-all cursor-pointer hover:scale-105 active:scale-95 ${
-                  hasEvent
-                    ? 'bg-rose-50/70 border-rose-300/80 shadow-xs'
-                    : 'bg-white hover:bg-slate-100 border-slate-200/90 shadow-2xs'
+                  isSelected
+                    ? 'ring-3 ring-cyan-500 bg-cyan-50 border-cyan-400 shadow-md'
+                    : eventData.count > 0
+                    ? 'bg-rose-50/80 border-rose-300 shadow-xs'
+                    : isToday
+                    ? 'bg-amber-50 border-amber-300 shadow-xs'
+                    : 'bg-white hover:bg-slate-100 border-slate-200/90'
                 }`}
               >
-                {/* Day number: black, sunday in red */}
-                <span
-                  className={`text-sm sm:text-base font-extrabold ${
-                    isSunday ? 'text-rose-600 font-black' : 'text-slate-900'
-                  }`}
-                >
-                  {dayNum}
-                </span>
+                {/* Número del día */}
+                <div className="w-full flex items-center justify-between px-1">
+                  <span
+                    className={`text-sm sm:text-base font-extrabold ${
+                      isSunday
+                        ? 'text-rose-600 font-black'
+                        : isToday
+                        ? 'text-amber-600 font-black'
+                        : 'text-slate-900'
+                    }`}
+                  >
+                    {dayNum}
+                  </span>
+                  {isToday && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" title="Hoy" />
+                  )}
+                </div>
 
-                {/* Icono 🚨 si hay evento */}
-                {hasEvent ? (
-                  <span className="text-sm filter drop-shadow animate-bounce">🚨</span>
-                ) : (
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                )}
+                {/* Pie del día: SOLO mostrar icono SI HAY EVENTO REAL GUARDADO */}
+                <div className="h-5 flex items-center justify-center">
+                  {eventData.count > 0 ? (
+                    <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black shadow-xs animate-pulse">
+                      {eventData.alarms.length > 0 && <span>⏰</span>}
+                      {eventData.reminders.length > 0 && <span>📝</span>}
+                      <span>{eventData.count}</span>
+                    </div>
+                  ) : null /* COMPLETAMENTE LIMPIO SI NO HAY EVENTO */}
+                </div>
               </button>
             );
           })}
         </div>
-
-        <p className="text-[11px] text-slate-500 text-center mt-6 italic">
-          Toca cualquier día para ver su onomástico popular, preview de Color Notes y conmemoración internacional.
-        </p>
       </div>
 
-      {/* MODAL DETALLES DEL DÍA (Centered ModalPortal) */}
+      {/* =================================================================== */}
+      {/* PARTE MÁS BAJA DEL CALENDARIO: ONOMÁSTICO Y CURIOSIDADES SEGÚN GOOGLE */}
+      {/* =================================================================== */}
+      <div className="p-5 sm:p-6 rounded-[2rem] bg-gradient-to-br from-indigo-950/50 via-slate-900/60 to-purple-950/50 border border-indigo-400/30 text-white space-y-4 shadow-xl select-none">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-amber-300 animate-spin" />
+            <div>
+              <h4 className="text-sm font-black uppercase tracking-wider text-amber-300 font-heading">
+                Onomástico y Curiosidades Diarias según Google
+              </h4>
+              <p className="text-[11px] text-white/60">
+                Información del día {displayDayNum} de {MONTH_NAMES_ES[month]}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsGeminiModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-purple-500/20 hover:from-amber-500/30 hover:to-purple-500/30 border border-amber-300/30 text-amber-200 text-xs font-bold cursor-pointer transition-all active:scale-95"
+            title="Consultar más detalles con Gemini"
+          >
+            <Bot className="w-3.5 h-3.5 text-amber-300" />
+            <span>Consultar con Gemini ✨</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
+          {/* 1. Onomástico / Santoral del Día */}
+          <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1.5">
+            <span className="text-[10px] uppercase font-black tracking-wider text-amber-300 flex items-center gap-1">
+              <span>🌟 Santoral / Onomástico:</span>
+            </span>
+            <p className="text-sm font-black text-white">
+              {currentDayInfo.onomastic}
+            </p>
+            <p className="text-[11px] text-white/70 leading-relaxed">
+              Día tradicional de salutación y bendición para quienes llevan este nombre.
+            </p>
+          </div>
+
+          {/* 2. Qué día se celebra según Google */}
+          <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1.5">
+            <span className="text-[10px] uppercase font-black tracking-wider text-sky-300 flex items-center gap-1">
+              <span>🌍 ¿Qué día se celebra hoy según Google?:</span>
+            </span>
+            <p className="text-sm font-black text-sky-200">
+              {currentDayInfo.celebration}
+            </p>
+            <p className="text-[11px] text-white/70 leading-relaxed">
+              Conmemoración internacional y efeméride destacada en Google Calendar.
+            </p>
+          </div>
+        </div>
+
+        {/* 3. Curiosidades del Día y Tips de Pareja */}
+        <div className="p-3.5 rounded-2xl bg-purple-950/30 border border-purple-400/20 space-y-2">
+          <div className="flex items-start gap-2">
+            <span className="text-base shrink-0">🔍</span>
+            <div className="space-y-1 text-xs">
+              <strong className="text-purple-200 block font-bold">
+                Curiosidad histórica y científica del día:
+              </strong>
+              <p className="text-white/80 leading-relaxed">
+                {currentDayInfo.curiosity}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2 pt-1 border-t border-white/5">
+            <span className="text-base shrink-0">❤️</span>
+            <div className="space-y-0.5 text-xs">
+              <strong className="text-rose-200 block font-bold">
+                Detalle y tip afectivo para hoy:
+              </strong>
+              <p className="text-white/80 leading-relaxed">
+                {currentDayInfo.coupleTip}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL DETALLES DEL DÍA AL HACER CLICK */}
       <ModalPortal
         isOpen={selectedDay !== null}
         onClose={() => setSelectedDay(null)}
-        title={selectedDay ? `Día ${selectedDay} de ${MONTH_NAMES[month]}` : ''}
+        title={selectedDay ? `Día ${selectedDay} de ${MONTH_NAMES_ES[month]}` : ''}
         icon={<CalendarIcon className="w-6 h-6 text-rose-500" />}
       >
         {selectedDay && (
@@ -200,31 +304,46 @@ export const CalendarSection: React.FC = () => {
                 <Sparkles className="w-3.5 h-3.5" /> Onomástico del día
               </span>
               <p className="text-base font-bold text-white">
-                {selectedCommemoration?.onomastic || 'Santos y protectores de la armonía'}
+                {getDayInfo(month, selectedDay).onomastic}
               </p>
             </div>
 
-            {/* Conmemoración Google / Día Internacional */}
+            {/* Celebración Google */}
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-1">
               <span className="text-[10px] text-sky-300 uppercase font-black tracking-wider">
-                Conmemoración / Día Internacional
+                🌍 Celebración Internacional / Google
               </span>
               <p className="text-sm font-semibold text-white/90">
-                {selectedCommemoration?.commemoration || 'Día de la complicidad y el amor mutuo'}
+                {getDayInfo(month, selectedDay).celebration}
               </p>
             </div>
 
-            {/* Recordatorios y Notas Adhesivas de la Fecha */}
+            {/* Curiosidad */}
+            <div className="p-4 rounded-2xl bg-purple-950/40 border border-purple-400/30 space-y-1">
+              <span className="text-[10px] text-purple-300 uppercase font-black tracking-wider">
+                🔍 Curiosidad del día
+              </span>
+              <p className="text-xs text-white/85 leading-relaxed">
+                {getDayInfo(month, selectedDay).curiosity}
+              </p>
+            </div>
+
+            {/* Eventos reales de la fecha */}
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
               <span className="text-[10px] text-rose-300 uppercase font-black tracking-wider flex items-center gap-1">
-                <Bell className="w-3.5 h-3.5" /> Recordatorios y Notas de la Fecha
+                <Bell className="w-3.5 h-3.5" /> Alarmas y Recordatorios Programados
               </span>
               {(() => {
                 const dayData = getDayEvents(selectedDay);
                 if (dayData.count === 0) {
                   return (
-                    <div className="p-4 rounded-xl bg-white/5 text-center text-white/50 text-xs">
-                      No hay alarmas ni notas guardadas para este día. Se agregarán aquí automáticamente cuando tú o tu pareja las programen.
+                    <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-center space-y-1">
+                      <p className="text-xs text-white/50 italic">
+                        No hay alarmas ni recordatorios guardados para este día.
+                      </p>
+                      <p className="text-[10px] text-white/40">
+                        Solo aparecerán aquí cuando agregues una alarma o nota para esta fecha.
+                      </p>
                     </div>
                   );
                 }
@@ -233,7 +352,7 @@ export const CalendarSection: React.FC = () => {
                     {dayData.reminders.map((r) => (
                       <div
                         key={r.id}
-                        className="p-3 rounded-xl bg-amber-100/90 text-amber-950 font-bold text-xs shadow-sm flex items-center justify-between"
+                        className="p-3 rounded-xl bg-amber-500/20 border border-amber-400/30 text-amber-200 font-bold text-xs shadow-sm flex items-center justify-between"
                       >
                         <span>📝 {r.title}</span>
                         <span className="text-[10px] opacity-70">
@@ -244,7 +363,7 @@ export const CalendarSection: React.FC = () => {
                     {dayData.alarms.map((a) => (
                       <div
                         key={a.id}
-                        className="p-3 rounded-xl bg-rose-100/90 text-rose-950 font-bold text-xs shadow-sm flex items-center justify-between"
+                        className="p-3 rounded-xl bg-rose-500/20 border border-rose-400/30 text-rose-200 font-bold text-xs shadow-sm flex items-center justify-between"
                       >
                         <span>⏰ {a.label}</span>
                         <span className="text-[10px] font-mono">{a.time}</span>
@@ -267,6 +386,12 @@ export const CalendarSection: React.FC = () => {
           </div>
         )}
       </ModalPortal>
+
+      {/* Modal Gemini Quick */}
+      <GeminiQuickModal
+        isOpen={isGeminiModalOpen}
+        onClose={() => setIsGeminiModalOpen(false)}
+      />
     </section>
   );
 };

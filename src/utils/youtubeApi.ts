@@ -172,7 +172,22 @@ export async function searchYouTube(
     ];
   }
 
-  // 2. Intentar buscar con YouTube Data API v3 si existe la clave
+  // 2. BÚSQUEDA REAL CONECTADA A GOOGLE / YOUTUBE VÍA SERVIDOR
+  try {
+    const response = await fetch(
+      `/api/youtube/search?q=${encodeURIComponent(q)}&source=${encodeURIComponent(preferredSource)}`
+    );
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data.items) && data.items.length > 0) {
+        return data.items;
+      }
+    }
+  } catch (serverErr) {
+    console.warn('Búsqueda de YouTube en servidor falló o no disponible, intentando respaldo:', serverErr);
+  }
+
+  // 3. Intentar buscar con YouTube Data API v3 si existe clave en el cliente
   const apiKey =
     (typeof process !== 'undefined' && (process.env?.VITE_YOUTUBE_API_KEY || process.env?.YOUTUBE_API_KEY)) ||
     (typeof import.meta !== 'undefined' && ((import.meta as any).env?.VITE_YOUTUBE_API_KEY || (import.meta as any).env?.YOUTUBE_API_KEY)) ||
@@ -181,7 +196,7 @@ export async function searchYouTube(
   if (apiKey) {
     try {
       const searchRes = await fetch(
-        `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&maxResults=12&q=${encodeURIComponent(
+        `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&maxResults=15&q=${encodeURIComponent(
           preferredSource === 'YouTube Music' ? `${q} audio music` : q
         )}&key=${apiKey}`
       );
@@ -195,7 +210,6 @@ export async function searchYouTube(
           .join(',');
 
         if (videoIds) {
-          // Obtener detalles para duración exacta
           const detailsRes = await fetch(
             `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet&id=${videoIds}&key=${apiKey}`
           );
@@ -223,11 +237,11 @@ export async function searchYouTube(
         }
       }
     } catch (apiErr) {
-      console.warn('YouTube Data API notice, using high-compatibility fallback:', apiErr);
+      console.warn('YouTube Data API notice:', apiErr);
     }
   }
 
-  // 3. Fallback inteligente y funcional: Filtrar catálogo verificado por coincidencias
+  // 4. Catálogo verificado de respaldo si se está completamente sin conexión a internet
   const lowerQ = q.toLowerCase();
   const matched = VERIFIED_PLAYABLE_ITEMS.filter(
     (item) =>
@@ -236,24 +250,5 @@ export async function searchYouTube(
       (item.genre && item.genre.toLowerCase().includes(lowerQ))
   );
 
-  // Si no coincide con ninguno existente, crear resultados contextuales utilizando IDs verificados de reproducción real
-  const finalResults: YouTubeItem[] = [...matched];
-
-  const backupIds = ['jfKfPfyJRdk', '5qap5aO4i9A', 'kJQP7kiw5Fk', 'OPf0YbXqDm0', 'JGwWNGJdvx8', 'hT_nvWreIhg'];
-
-  for (let i = finalResults.length; i < 6; i++) {
-    const assignedYtId = backupIds[i % backupIds.length];
-    finalResults.push({
-      id: `dyn_${q}_${i}`,
-      ytId: assignedYtId,
-      title: `${q} • ${i === 0 ? 'Audio Oficial' : i === 1 ? 'En Vivo' : 'Remix & Chill'}`,
-      channel: `${q.includes('-') ? q.split('-')[0].trim() : 'Música Dúo'} Oficial`,
-      thumbnail: `https://img.youtube.com/vi/${assignedYtId}/hqdefault.jpg`,
-      duration: i === 0 ? '3:45' : i === 1 ? '4:15' : '3:20',
-      genre: preferredSource,
-      source: preferredSource,
-    });
-  }
-
-  return finalResults;
+  return matched;
 }
