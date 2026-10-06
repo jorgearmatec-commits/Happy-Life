@@ -1,84 +1,92 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'motion/react';
-import {
-  GripVertical,
-  ArrowUp,
-  ArrowDown,
-  SlidersHorizontal,
-  ChevronLeft,
-  ChevronRight
-} from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { ModalPortal } from './ModalPortal';
 
 export const SECTION_METADATA: Record<
   string,
-  { label: string; emoji: string; anim: string; color: string }
+  { label: string; shortLabel: string; emoji: string; anim: string; color: string }
 > = {
   status: {
     label: 'Estado actual',
+    shortLabel: 'Estado 💘',
     emoji: '💘',
     anim: 'animate-bounce',
     color: 'text-rose-400',
   },
   reminders: {
     label: 'Recordatorios',
+    shortLabel: 'Notas 📝',
     emoji: '📝',
     anim: 'hover:rotate-12 transition-transform',
     color: 'text-amber-400',
   },
   alarms: {
     label: 'Alarmas y reloj',
+    shortLabel: 'Alarmas ⏰',
     emoji: '⏰',
     anim: 'animate-pulse',
     color: 'text-cyan-400',
   },
+  minigames: {
+    label: 'Minijuegos',
+    shortLabel: 'Juegos 🎲',
+    emoji: '🎲',
+    anim: 'hover:rotate-45 transition-transform',
+    color: 'text-amber-300',
+  },
   journal: {
     label: 'Diario de vida',
+    shortLabel: 'Diario 📖',
     emoji: '📖',
     anim: 'hover:scale-125 transition-transform',
     color: 'text-purple-400',
   },
   location: {
     label: 'Ubicación',
+    shortLabel: 'Ubicación 📍',
     emoji: '📍',
     anim: 'animate-bounce',
-    color: 'text-emerald-400',
-  },
-  recorder: {
-    label: 'Grabadora',
-    emoji: '🎙️',
-    anim: 'animate-pulse',
-    color: 'text-lime-400',
+    color: 'text-blue-400',
   },
   emotional: {
     label: 'Apoyo emocional',
+    shortLabel: 'Apoyo ❤️',
     emoji: '❤️🔧',
     anim: 'hover:scale-125 transition-transform',
     color: 'text-rose-300',
   },
   menstrual: {
     label: 'Calendario menstrual',
+    shortLabel: 'Menstrual 🌸',
     emoji: '🌸',
     anim: 'hover:rotate-45 transition-transform',
     color: 'text-pink-400',
   },
 };
 
+// 8 MENÚS EXACTOS DIVIDIDOS EN 4 Y 4 EN DOS FILAS
+const ORDERED_8_MENUS = [
+  // Fila 1 (4 menús)
+  'status',
+  'reminders',
+  'alarms',
+  'minigames',
+  // Fila 2 (4 menús)
+  'journal',
+  'location',
+  'emotional',
+  'menstrual',
+];
+
 export const SubmenuNav: React.FC = () => {
   const { settings, setActiveMenu } = useApp();
-
-  // Filtrar secciones activas
-  const sections = settings.activeSectionsOrder.filter(
-    (secId) => secId !== 'menstrual' || settings.menstrualCalendar.enabled
-  );
   const currentMenu = settings.activeMenu;
 
   return (
-    <div className="w-full py-1 select-none">
-      {/* Carrusel Deslizable de Menús Edge-to-Edge */}
-      <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none touch-pan-x px-1">
-        {sections.map((secId) => {
+    <nav className="w-full py-2 select-none" aria-label="Navegación de Secciones">
+      {/* Cuadrícula de 8 menús: Divididos en 4 y 4 en dos filas uniformes */}
+      <div className="grid grid-cols-4 gap-1.5 sm:gap-2.5 w-full">
+        {ORDERED_8_MENUS.map((secId) => {
           const meta = SECTION_METADATA[secId];
           if (!meta) return null;
 
@@ -88,31 +96,53 @@ export const SubmenuNav: React.FC = () => {
             <motion.button
               key={secId}
               type="button"
-              whileHover={{ scale: 1.05 }}
+              whileHover={{ scale: 1.04, y: -2 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setActiveMenu(secId)}
-              className={`px-4 py-2.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer shadow-sm ${
+              title={meta.label}
+              className={`p-2 sm:p-2.5 rounded-2xl flex flex-col items-center justify-center text-center transition-all cursor-pointer relative shadow-sm min-h-[64px] sm:min-h-[72px] border ${
                 isSelected
-                  ? 'bg-white text-slate-950 font-black scale-105 shadow-lg ring-2 ring-white/60'
-                  : 'bg-white/10 hover:bg-white/20 text-white/90 border border-white/10'
+                  ? 'bg-white text-slate-950 font-black shadow-lg ring-2 ring-white/70 scale-102 border-white'
+                  : 'bg-white/10 hover:bg-white/15 text-white border-white/15 backdrop-blur-md'
               }`}
             >
-              {/* Emoji 3D Animado Móvil */}
-              {secId === 'emotional' ? (
-                <span className="inline-flex items-center gap-0.5 text-base">
-                  <span className="animate-pulse">❤️</span>
-                  <span className="inline-block animate-bounce">🔧</span>
-                </span>
-              ) : (
-                <span className={`text-base inline-block ${isSelected ? 'animate-bounce' : meta.anim}`}>
-                  {meta.emoji}
-                </span>
+              {/* Emoji animado */}
+              <div className="text-xl sm:text-2xl mb-1 flex items-center justify-center">
+                {secId === 'emotional' ? (
+                  <span className="inline-flex items-center gap-0.5">
+                    <span className="animate-pulse">❤️</span>
+                    <span className="inline-block animate-bounce">🔧</span>
+                  </span>
+                ) : (
+                  <span className={`inline-block ${isSelected ? 'animate-bounce' : meta.anim}`}>
+                    {meta.emoji}
+                  </span>
+                )}
+              </div>
+
+              {/* Título en texto responsive */}
+              <span
+                className={`text-[10.5px] sm:text-xs leading-tight tracking-tight font-heading truncate max-w-full ${
+                  isSelected ? 'text-slate-950 font-black' : 'text-white/90 font-bold'
+                }`}
+                style={{
+                  color: isSelected ? '#020617' : undefined,
+                }}
+              >
+                {meta.shortLabel}
+              </span>
+
+              {/* Indicador de activo */}
+              {isSelected && (
+                <motion.span
+                  layoutId="activeSubmenuIndicator"
+                  className="absolute -bottom-1 w-6 h-1 rounded-full bg-rose-500 shadow-md"
+                />
               )}
-              <span className="tracking-tight">{meta.label}</span>
             </motion.button>
           );
         })}
       </div>
-    </div>
+    </nav>
   );
 };

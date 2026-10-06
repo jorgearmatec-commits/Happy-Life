@@ -99,9 +99,9 @@ const defaultSettings: AppSettings = {
     'status',
     'reminders',
     'alarms',
+    'minigames',
     'journal',
     'location',
-    'recorder',
     'emotional',
     'menstrual'
   ],
@@ -151,54 +151,7 @@ const initialPartner: UserProfile = {
   }
 };
 
-const initialReminders: ReminderNote[] = [
-  {
-    id: 'rem_1',
-    title: 'Tomar vitaminas y pastillas del mediodía',
-    category: 'Pastillas',
-    minutes: 30,
-    dueTime: new Date(Date.now() + 30 * 60000).toISOString(),
-    color: 'yellow',
-    isPrivate: false,
-    completed: false,
-    tone: 'google_chime',
-    createdBy: 'me',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'rem_checklist_1',
-    title: 'Lista de Compras Semanal del Hogar',
-    category: 'Cocinar',
-    minutes: 120,
-    dueTime: new Date(Date.now() + 120 * 60000).toISOString(),
-    color: 'peach',
-    isPrivate: false,
-    completed: false,
-    tone: 'google_eureka',
-    createdBy: 'partner',
-    createdAt: new Date().toISOString(),
-    isChecklist: true,
-    checklistItems: [
-      { id: 'item_1', text: 'Paltas maduras 🥑', completed: true },
-      { id: 'item_2', text: 'Café en grano ☕', completed: false },
-      { id: 'item_3', text: 'Frutillas frescas 🍓', completed: false },
-      { id: 'item_4', text: 'Chocolate negro para mimos 🍫', completed: false },
-    ],
-  },
-  {
-    id: 'rem_2',
-    title: 'Paseo vespertino de nuestro perrito 🐾',
-    category: 'Sacar al perro',
-    minutes: 180,
-    dueTime: new Date(Date.now() + 180 * 60000).toISOString(),
-    color: 'mint',
-    isPrivate: false,
-    completed: false,
-    tone: 'samsung',
-    createdBy: 'partner',
-    createdAt: new Date().toISOString(),
-  },
-];
+const initialReminders: ReminderNote[] = [];
 
 const initialJournal: JournalEntry[] = [
   {
@@ -316,7 +269,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const loadInitialData = () => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed.reminders)) {
+          // Filtrar recordatorios falsos/de demostración anteriores
+          parsed.reminders = parsed.reminders.filter(
+            (r: ReminderNote) => !['rem_1', 'rem_checklist_1', 'rem_2'].includes(r.id)
+          );
+        }
+        if (parsed.settings && Array.isArray(parsed.settings.activeSectionsOrder)) {
+          if (!parsed.settings.activeSectionsOrder.includes('minigames')) {
+            parsed.settings.activeSectionsOrder = defaultSettings.activeSectionsOrder;
+          }
+        }
+        return parsed;
+      }
     } catch (e) {
       console.warn('Persistent storage notice:', e);
     }

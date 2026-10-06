@@ -27,8 +27,32 @@
     color: var(--app-text-color, #ffffff);
   }
 
-  p, span, label, div {
-    /* Allow fallback to app text color when no explicit override */
+  /* Propagación uniforme de color de texto y subtexto */
+  body, #root, main {
+    color: var(--app-text-color, #ffffff);
+  }
+
+  /* Títulos y texto principal de menús y tarjetas */
+  nav button span:not(.emoji),
+  .text-white:not(.btn-3d *):not(.bg-white *):not(.keep-orig) {
+    color: var(--app-text-color, #ffffff) !important;
+  }
+
+  /* Subtextos y textos secundarios */
+  .text-white\/90,
+  .text-white\/80,
+  .text-white\/70,
+  .text-white\/60,
+  .text-white\/50 {
+    color: var(--app-subtext-color, #cbd5e1) !important;
+  }
+
+  /* Respetar botones y elementos específicos con fondo claro */
+  .bg-white,
+  .bg-white *,
+  .btn-3d,
+  .btn-3d * {
+    color: initial;
   }
 }
 

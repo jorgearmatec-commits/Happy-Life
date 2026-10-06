@@ -60,7 +60,7 @@ export const ThreeDice3D: React.FC<ThreeDice3DProps> = ({
 
     // CAMERA
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
-    camera.position.set(0, 1.2, 4.6);
+    camera.position.set(0, 0.9, 4.8);
     camera.lookAt(0, 0.4, 0);
 
     // RENDERER
@@ -288,16 +288,16 @@ export const ThreeDice3D: React.FC<ThreeDice3DProps> = ({
           diceGroup.rotation.y += 0.35 * spinSpeed * 0.06;
           diceGroup.rotation.z += 0.22 * spinSpeed * 0.06;
 
-          // Flotando alto en expectación
-          diceGroup.position.y = 2.4 + Math.sin(elapsedSecs * 6) * 0.15;
+          // Flotando perfectamente visible sin salirse por arriba
+          diceGroup.position.y = 0.95 + Math.sin(elapsedSecs * 4) * 0.08;
 
           // Sombra más grande y tenue
           if (shadowMeshRef.current && shadowMatRef.current) {
-            shadowMeshRef.current.scale.set(1.5, 1.5, 1.5);
-            shadowMatRef.current.opacity = 0.25;
+            shadowMeshRef.current.scale.set(1.4, 1.4, 1.4);
+            shadowMatRef.current.opacity = 0.35;
           }
         } else if (elapsedSecs < totalDuration) {
-          // FASE 2 (5 a 10s): Descenso lento easeOutCubic de y=2.5 a y=0.3 con desaceleración y rebote final
+          // FASE 2 (5 a 10s): Descenso suave easeOutCubic de y=0.95 a y=0.3 con desaceleración y rebote final
           const phaseProgress = (elapsedSecs - 5.0) / 5.0; // 0 a 1
           const ease = easeOutCubic(phaseProgress);
 
@@ -311,13 +311,13 @@ export const ThreeDice3D: React.FC<ThreeDice3DProps> = ({
           diceGroup.rotation.y = THREE.MathUtils.lerp(startY, target.y, ease);
           diceGroup.rotation.z = THREE.MathUtils.lerp(startZ, target.z, ease);
 
-          // Descenso de y=2.4 a y=0.3
-          let currentY = THREE.MathUtils.lerp(2.4, 0.3, ease);
+          // Descenso suave de y=0.95 a y=0.3
+          let currentY = THREE.MathUtils.lerp(0.95, 0.3, ease);
 
           // Rebote suave al final (últimos 0.8s)
           if (phaseProgress > 0.85) {
             const bouncePhase = (phaseProgress - 0.85) / 0.15;
-            currentY += Math.sin(bouncePhase * Math.PI) * 0.22 * (1 - bouncePhase);
+            currentY += Math.sin(bouncePhase * Math.PI) * 0.12 * (1 - bouncePhase);
           }
 
           diceGroup.position.y = currentY;

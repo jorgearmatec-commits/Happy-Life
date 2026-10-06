@@ -11,6 +11,7 @@ import { LocationSection } from './components/LocationSection';
 import { RecorderCard } from './components/RecorderCard';
 import { EmotionalSupportSection, COMPREHENSIVE_ADVICE } from './components/EmotionalSupportSection';
 import { MenstrualCard } from './components/MenstrualCard';
+import { MinigamesSection } from './components/MinigamesSection';
 import { MiniChatModal } from './components/MiniChatModal';
 import { BodyDoublingModal } from './components/BodyDoublingModal';
 import { SettingsModal } from './components/SettingsModal';
@@ -42,6 +43,19 @@ const MainAppContent: React.FC = () => {
     document.documentElement.style.setProperty('--app-text-color', settings.textColor || '#ffffff');
     document.documentElement.style.setProperty('--app-subtext-color', settings.subtextColor || '#cbd5e1');
   }, [settings.textColor, settings.subtextColor]);
+
+  // Escalar el tamaño de fuente visiblemente en toda la aplicación
+  useEffect(() => {
+    const fontScaleMap: Record<string, string> = {
+      small: '13.5px',
+      normal: '16px',
+      medium: '18.5px',
+      large: '21.5px',
+      extralarge: '25px',
+    };
+    const rootSize = fontScaleMap[settings.fontSize] || '16px';
+    document.documentElement.style.fontSize = rootSize;
+  }, [settings.fontSize]);
 
   // Selección de consejo inicial centrado al cargar (solo si no se ha visto en esta sesión)
   useEffect(() => {
@@ -217,6 +231,8 @@ const MainAppContent: React.FC = () => {
         return <RemindersSection />;
       case 'alarms':
         return <AlarmClockSection />;
+      case 'minigames':
+        return <MinigamesSection />;
       case 'journal':
         return <LifeJournalSection />;
       case 'location':
@@ -280,28 +296,53 @@ const MainAppContent: React.FC = () => {
           document.body
         )}
 
-      {/* CAPA 3: FONDO FIJO ADAPTADO A LA PANTALLA (No se mueve ni se estira) */}
-      {settings.customBgImage ? (
-        <div className="fixed inset-0 min-h-screen w-full -z-50 overflow-hidden pointer-events-none select-none">
-          <img
-            src={settings.customBgImage}
-            alt="Fondo Personalizado"
-            className="w-full h-full object-cover object-center pointer-events-none select-none"
-          />
-        </div>
-      ) : settings.backgroundTheme && settings.backgroundTheme !== 'mesh-aurora-dark' ? (
-        <div
-          className={`fixed inset-0 min-h-screen w-full -z-50 ${settings.backgroundTheme} transition-all duration-700`}
-        />
-      ) : (
-        /* Aurora Dinámica Pantalla Completa Uniforme */
-        <div className="fixed inset-0 min-h-screen w-full -z-50 bg-[#090c12] overflow-hidden">
-          <div className="absolute top-[-10%] left-[-10%] w-[65vw] h-[65vw] rounded-full bg-[#722f37]/50 blur-[130px] pointer-events-none animate-aurora" />
-          <div className="absolute top-[30%] right-[-10%] w-[60vw] h-[60vw] rounded-full bg-[#2563eb]/45 blur-[140px] pointer-events-none animate-aurora" />
-          <div className="absolute bottom-[-10%] left-[10%] w-[55vw] h-[55vw] rounded-full bg-[#556b2f]/45 blur-[130px] pointer-events-none animate-aurora" />
-          <div className="absolute top-[60%] right-[25%] w-[50vw] h-[50vw] rounded-full bg-[#38bdf8]/35 blur-[150px] pointer-events-none animate-aurora" />
-        </div>
-      )}
+      {/* CAPA 3: FONDO FIJO ADAPTADO A LA PANTALLA RENDERIZADO EN BODY VIA PORTAL (100% fijo e inamovible) */}
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            id="app-fixed-viewport-bg"
+            className="fixed inset-0 w-screen h-screen pointer-events-none select-none overflow-hidden"
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100vh',
+              zIndex: -999999,
+            }}
+          >
+            {settings.customBgImage ? (
+              <img
+                src={settings.customBgImage}
+                alt="Fondo Personalizado Fijo"
+                className="w-full h-full object-cover object-center pointer-events-none select-none"
+                style={{ width: '100vw', height: '100vh', objectFit: 'cover' }}
+              />
+            ) : settings.backgroundTheme?.startsWith('#') || settings.backgroundTheme?.startsWith('bg-[#') ? (
+              <div
+                className="w-full h-full"
+                style={{
+                  backgroundColor: settings.backgroundTheme.startsWith('bg-[')
+                    ? settings.backgroundTheme.replace('bg-[', '').replace(']', '')
+                    : settings.backgroundTheme,
+                }}
+              />
+            ) : settings.backgroundTheme && settings.backgroundTheme !== 'mesh-aurora-dark' ? (
+              <div
+                className={`w-full h-full ${settings.backgroundTheme} transition-all duration-700`}
+              />
+            ) : (
+              /* Aurora Dinámica Pantalla Completa Uniforme */
+              <div className="w-full h-full bg-[#090c12] relative overflow-hidden">
+                <div className="absolute top-[-10%] left-[-10%] w-[65vw] h-[65vw] rounded-full bg-[#722f37]/50 blur-[130px] pointer-events-none animate-aurora" />
+                <div className="absolute top-[30%] right-[-10%] w-[60vw] h-[60vw] rounded-full bg-[#2563eb]/45 blur-[140px] pointer-events-none animate-aurora" />
+                <div className="absolute bottom-[-10%] left-[10%] w-[55vw] h-[55vw] rounded-full bg-[#556b2f]/45 blur-[130px] pointer-events-none animate-aurora" />
+                <div className="absolute top-[60%] right-[25%] w-[50vw] h-[50vw] rounded-full bg-[#38bdf8]/35 blur-[150px] pointer-events-none animate-aurora" />
+              </div>
+            )}
+          </div>,
+          document.body
+        )}
 
       {/* Capa SVG Noise uniforme */}
       {!settings.highPerformanceMode && (

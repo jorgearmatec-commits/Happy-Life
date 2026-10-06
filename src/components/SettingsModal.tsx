@@ -32,26 +32,18 @@ import { useApp } from '../context/AppContext';
 import { ModalPortal } from './ModalPortal';
 
 export const BACKGROUND_PRESETS = [
-  { name: 'Aurora Dinámica', value: 'mesh-aurora-dark', color: '#ec4899' },
-  { name: 'Burdeo Elegante', value: 'bg-[#581c87]', color: '#5e0d1b' },
-  { name: 'Verde Oliva Profundo', value: 'bg-[#283618]', color: '#3f4f24' },
-  { name: 'Negro Carbón', value: 'bg-[#18181b]', color: '#1a1f2c' },
-  { name: 'Rojo Pasión', value: 'bg-[#dc2626]', color: '#e11d48' },
-  { name: 'Negro Puro', value: 'bg-[#000000]', color: '#000000' },
-  { name: 'Blanco Suave', value: 'bg-[#f1f5f9]', color: '#ffffff' },
-  { name: 'Gris Carbón', value: 'bg-[#475569]', color: '#64748b' },
-  { name: 'Índigo Profundo', value: 'bg-[#3730a3]', color: '#4338ca' },
-  { name: 'Pizarra Carbón', value: 'bg-[#1e293b]', color: '#334155' },
-  { name: 'Medianoche', value: 'bg-[#0b0f19]', color: '#020617' },
-  { name: 'Verde Salvia', value: 'bg-[#2d4a34]', color: '#4d6150' },
-  { name: 'Melocotón Cálido', value: 'bg-[#c2410c]', color: '#ea580c' },
-  { name: 'Lavanda Suave', value: 'bg-[#7e22ce]', color: '#a855f7' },
-  { name: 'Azul Espacial', value: 'bg-[#0f172a]', color: '#1e3a8a' },
+  { name: 'Violeta Místico', value: 'bg-[#4c1d95]', color: '#5b21b6' },
+  { name: 'Burdeo Elegante', value: 'bg-[#4a0404]', color: '#4a0404' },
+  { name: 'Negro Carbón', value: 'bg-[#18181b]', color: '#18181b' },
+  { name: 'Blanco Suave', value: 'bg-[#f8fafc]', color: '#ffffff' },
+  { name: 'Índigo Profundo', value: 'bg-[#1e1b4b]', color: '#312e81' },
+  { name: 'Melocotón Suave', value: 'bg-[#ea580c]', color: '#fdba74' },
+  { name: 'Lavanda Suave', value: 'bg-[#7e22ce]', color: '#c084fc' },
   { name: 'Rosa Romántico', value: 'bg-[#831843]', color: '#be185d' },
-  { name: 'Esmeralda', value: 'bg-[#064e3b]', color: '#047857' },
-  { name: 'Chocolate Cálido', value: 'bg-[#451a03]', color: '#78350f' },
-  { name: 'Cian Profundo', value: 'bg-[#164e63]', color: '#0891b2' },
-  { name: 'Violeta Místico', value: 'bg-[#4c1d95]', color: '#6d28d9' },
+  { name: 'Azul Eléctrico', value: 'bg-[#1e40af]', color: '#1d4ed8' },
+  { name: 'Azul Cielo', value: 'bg-[#0369a1]', color: '#0284c7' },
+  { name: 'Rosado Dulce', value: 'bg-[#db2777]', color: '#f472b6' },
+  { name: 'Aurora Dinámica', value: 'mesh-aurora-dark', color: '#8b5cf6' },
 ];
 
 export const TEXT_COLORS = [
@@ -133,6 +125,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const backupRestoreInputRef = useRef<HTMLInputElement>(null);
+
+  const [customBgColor, setCustomBgColor] = useState<string>(() => {
+    if (settings.backgroundTheme?.startsWith('#')) return settings.backgroundTheme;
+    if (settings.backgroundTheme?.startsWith('bg-[#')) return settings.backgroundTheme.replace('bg-[', '').replace(']', '');
+    return '#1e1b4b';
+  });
 
   useEffect(() => {
     if ('Notification' in window) {
@@ -376,10 +374,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               {/* Presets de Fondos Uniformes */}
               <div className="space-y-2">
-                <label className="text-xs font-bold text-white/90 uppercase tracking-wider block">
-                  Fondos Uniformes Pantalla Completa (20 Opciones):
-                </label>
-                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-white/90 uppercase tracking-wider block">
+                    Fondos Uniformes Pantalla Completa:
+                  </label>
+                  <span className="text-[10px] text-rose-300 font-bold px-2 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/30">
+                    12 Opciones
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                   {BACKGROUND_PRESETS.map((bg) => (
                     <button
                       key={bg.name}
@@ -405,11 +408,99 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
-              {/* Colores de Texto */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-white/90 uppercase tracking-wider">
-                  Color de Texto Principal:
-                </label>
+              {/* PALETA DE COLORES AJUSTABLE PARA EL FONDO (NUEVA FUNCIÓN) */}
+              <div className="p-4 rounded-3xl bg-black/40 border border-white/15 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Palette className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs font-black uppercase tracking-wider text-white">
+                      Paleta de Color Ajustable para Fondo:
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-white/50">Cualquier Color HEX</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {/* Selector visual de color nativo */}
+                  <div className="relative">
+                    <input
+                      type="color"
+                      value={customBgColor.startsWith('#') ? customBgColor : '#1e1b4b'}
+                      onChange={(e) => setCustomBgColor(e.target.value)}
+                      className="w-12 h-12 rounded-2xl cursor-pointer border-2 border-white/40 bg-transparent p-0 shadow-lg"
+                      title="Haz clic para abrir el espectro y selector de color"
+                    />
+                  </div>
+
+                  {/* Input de código HEX */}
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={customBgColor}
+                      onChange={(e) => setCustomBgColor(e.target.value)}
+                      placeholder="#1e1b4b"
+                      className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white font-mono text-xs focus:outline-none focus:border-rose-400"
+                    />
+                    <span className="text-[9.5px] text-white/50 mt-0.5 block">
+                      Escribe un código HEX o selecciona con el círculo de color
+                    </span>
+                  </div>
+
+                  {/* Botón Aplicar a Fondo */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateSettings({ backgroundTheme: customBgColor, customBgImage: undefined });
+                      setRestoreStatus(`¡Color de fondo ${customBgColor} aplicado a toda la pantalla!`);
+                      setTimeout(() => setRestoreStatus(null), 3000);
+                    }}
+                    className="px-4 py-2.5 rounded-xl btn-3d-rose text-white text-xs font-bold cursor-pointer shrink-0 shadow-md"
+                  >
+                    Aplicar Fondo 🎨
+                  </button>
+                </div>
+
+                {/* Muestras rápidas de colores ajustables */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[10px] text-white/50 mr-1">Rápidos:</span>
+                  {[
+                    '#4c1d95', '#4a0404', '#18181b', '#f8fafc', '#1e1b4b',
+                    '#ea580c', '#7e22ce', '#831843', '#1e40af', '#0284c7',
+                    '#db2777', '#064e3b', '#2e1065', '#0f172a', '#701a75'
+                  ].map((hex) => (
+                    <button
+                      key={hex}
+                      type="button"
+                      onClick={() => {
+                        setCustomBgColor(hex);
+                        updateSettings({ backgroundTheme: hex, customBgImage: undefined });
+                      }}
+                      className="w-5 h-5 rounded-full border border-white/30 cursor-pointer shadow-sm hover:scale-125 transition-transform"
+                      style={{ backgroundColor: hex }}
+                      title={`Aplicar ${hex}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Colores de Texto Principal con Paleta Ajustable */}
+              <div className="space-y-2 pt-2 border-t border-white/10">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-white/90 uppercase tracking-wider">
+                    Color de Texto Principal (Se Aplica a Toda la App):
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-white/50">Paleta Libre:</span>
+                    <input
+                      type="color"
+                      value={settings.textColor.startsWith('#') ? settings.textColor : '#ffffff'}
+                      onChange={(e) => updateSettings({ textColor: e.target.value })}
+                      className="w-7 h-7 rounded-xl cursor-pointer border border-white/30 bg-transparent p-0 shadow-sm"
+                      title="Seleccionar cualquier color para el texto principal"
+                    />
+                  </div>
+                </div>
+
                 <div className="flex flex-wrap gap-2">
                   {TEXT_COLORS.map((tc) => (
                     <button
@@ -429,19 +520,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
-              {/* Colores de Subtexto y Letras Secundarias (Restaurado y Optimizado) */}
+              {/* Colores de Subtexto y Letras Secundarias con Paleta Ajustable */}
               <div className="space-y-2 pt-2 border-t border-white/10">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-bold text-white/90 uppercase tracking-wider">
-                    Color del Subtexto y Letras Secundarias:
+                    Color del Subtexto y Letras Secundarias (Ajustable):
                   </label>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-white/50">Personalizado:</span>
+                    <span className="text-[10px] text-white/50">Paleta Libre:</span>
                     <input
                       type="color"
                       value={settings.subtextColor.startsWith('#') ? settings.subtextColor : '#cbd5e1'}
                       onChange={(e) => updateSettings({ subtextColor: e.target.value })}
-                      className="w-6 h-6 rounded-lg cursor-pointer border border-white/20 bg-transparent p-0"
+                      className="w-7 h-7 rounded-xl cursor-pointer border border-white/30 bg-transparent p-0 shadow-sm"
                       title="Elegir cualquier color personalizado para el subtexto"
                     />
                   </div>
@@ -469,18 +560,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {/* Vista previa en vivo de contraste */}
-                <div className="p-3 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-between mt-2">
+                <div className="p-3.5 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-between mt-2">
                   <div>
                     <p className="text-xs font-black" style={{ color: settings.textColor }}>
-                      Texto Principal de Muestra
+                      Texto Principal de Muestra (Menús y Títulos)
                     </p>
                     <p className="text-[11px] font-medium" style={{ color: settings.subtextColor }}>
-                      Subtexto secundario: lectura nítida y descansada en tu pantalla
+                      Subtexto secundario: lectura nítida, relajada y descansada
                     </p>
                   </div>
-                  <span className="text-[10px] px-2 py-1 rounded-lg bg-white/10 text-white/80 font-mono">
-                    {settings.subtextColor}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 rounded-full border border-white/20" style={{ backgroundColor: settings.textColor }} title="Texto principal" />
+                    <span className="w-4 h-4 rounded-full border border-white/20" style={{ backgroundColor: settings.subtextColor }} title="Subtexto" />
+                  </div>
                 </div>
               </div>
 

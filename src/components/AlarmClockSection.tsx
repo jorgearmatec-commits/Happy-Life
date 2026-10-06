@@ -22,14 +22,14 @@ import { ModalPortal } from './ModalPortal';
 export const AlarmClockSection: React.FC = () => {
   const { alarms, reminders, addAlarm, toggleAlarm, deleteAlarm } = useApp();
 
-  const [selectedHour, setSelectedHour] = useState<number>(7);
-  const [selectedMinute, setSelectedMinute] = useState<number>(30);
+  const [selectedHour, setSelectedHour] = useState<number>(() => new Date().getHours());
+  const [selectedMinute, setSelectedMinute] = useState<number>(() => new Date().getMinutes());
   const [alarmLabel, setAlarmLabel] = useState<string>('Despertar con amor ❤️');
   const [alarmDate, setAlarmDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [alarmTone, setAlarmTone] = useState<SoundTone>('google_chime');
   const [customToneName, setCustomToneName] = useState<string>('');
   const [customToneData, setCustomToneData] = useState<string>('');
-  const [clockViewMode, setClockViewMode] = useState<'alarm' | 'live_time'>('alarm');
+  const [clockViewMode, setClockViewMode] = useState<'alarm' | 'live_time'>('live_time');
 
   // Live ticking date and time with moving second hand
   const [nowDate, setNowDate] = useState<Date>(new Date());
@@ -296,43 +296,70 @@ export const AlarmClockSection: React.FC = () => {
                 );
               })}
 
-              {/* Manecilla de HORA en vivo */}
+              {/* Manecilla de HORA Tradicional en vivo (Estilo Suizo tradicional) */}
               <div
-                className="absolute w-3.5 h-20 bg-gradient-to-t from-cyan-600 to-cyan-300 rounded-full origin-bottom shadow-lg z-10 transition-transform duration-500 ease-linear"
+                className="absolute origin-bottom z-10 flex flex-col items-center pointer-events-none"
                 style={{
-                  top: 'calc(50% - 80px)',
+                  width: '12px',
+                  height: '84px',
+                  top: 'calc(50% - 84px)',
                   transform: `rotate(${liveHourAngle}deg)`,
+                  transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
               >
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 w-0 h-0 border-x-[8px] border-x-transparent border-b-[14px] border-b-cyan-300" />
+                {/* Punta afilada tradicional */}
+                <div className="w-0 h-0 border-x-[5px] border-x-transparent border-b-[12px] border-b-cyan-200" />
+                {/* Cuerpo cónico con nervio central */}
+                <div className="w-2.5 flex-1 bg-gradient-to-r from-cyan-500 via-cyan-300 to-cyan-500 shadow-md relative">
+                  <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[1px] bg-white/70" />
+                </div>
+                {/* Contrapeso inferior clásico de reloj tradicional */}
+                <div className="w-3.5 h-4 bg-cyan-700 rounded-b-md shadow-sm -mb-2" />
               </div>
 
-              {/* Manecilla de MINUTO en vivo */}
+              {/* Manecilla de MINUTO Tradicional en vivo */}
               <div
-                className="absolute w-2.5 h-28 bg-gradient-to-t from-blue-600 to-cyan-200 rounded-full origin-bottom shadow-lg z-20 transition-transform duration-500 ease-linear"
+                className="absolute origin-bottom z-20 flex flex-col items-center pointer-events-none"
                 style={{
-                  top: 'calc(50% - 112px)',
+                  width: '10px',
+                  height: '116px',
+                  top: 'calc(50% - 116px)',
                   transform: `rotate(${liveMinuteAngle}deg)`,
+                  transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
               >
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 w-0 h-0 border-x-[7px] border-x-transparent border-b-[14px] border-b-cyan-200" />
+                {/* Punta afilada minutero */}
+                <div className="w-0 h-0 border-x-[4px] border-x-transparent border-b-[14px] border-b-cyan-100" />
+                {/* Cuerpo minutero estilizado */}
+                <div className="w-2 flex-1 bg-gradient-to-r from-cyan-400 via-white to-cyan-400 shadow-md relative">
+                  <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[1px] bg-white" />
+                </div>
+                {/* Contrapeso inferior minutero */}
+                <div className="w-3 h-5 bg-cyan-700 rounded-b-md shadow-sm -mb-2" />
               </div>
 
-              {/* Manecilla de SEGUNDERO en vivo (movimiento cada segundo) */}
+              {/* Manecilla de SEGUNDERO tradicional con ojo de contrapeso suizo */}
               <div
-                className="absolute w-1 h-32 bg-rose-500 rounded-full origin-bottom shadow-md z-30 transition-transform duration-100 ease-linear"
+                className="absolute origin-bottom z-30 flex flex-col items-center pointer-events-none"
                 style={{
-                  top: 'calc(50% - 128px)',
+                  width: '6px',
+                  height: '136px',
+                  top: 'calc(50% - 136px)',
                   transform: `rotate(${liveSecondAngle}deg)`,
                 }}
               >
-                {/* Contrapeso inferior del segundero */}
-                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-2 h-4 rounded-full bg-rose-600" />
-                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-rose-400" />
+                <div className="w-[1.5px] flex-1 bg-rose-500 shadow-sm" />
+                {/* Contrapeso circular clásico de segundero */}
+                <div className="w-3 h-3 rounded-full border-2 border-rose-500 bg-black/40 -mb-1 flex items-center justify-center">
+                  <div className="w-1 h-1 rounded-full bg-rose-400" />
+                </div>
+                <div className="w-[2px] h-4 bg-rose-600" />
               </div>
 
-              {/* Centro / Eje */}
-              <div className="w-5 h-5 rounded-full bg-rose-500 border-2 border-slate-900 shadow-md z-40 pointer-events-none" />
+              {/* Centro / Eje metálico tradicional con remache */}
+              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-slate-200 via-slate-400 to-slate-600 border-2 border-slate-900 shadow-lg z-40 pointer-events-none flex items-center justify-center">
+                <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-inner" />
+              </div>
             </div>
 
             {/* Botón para ver calendario integrado */}
@@ -411,38 +438,52 @@ export const AlarmClockSection: React.FC = () => {
                   );
                 })}
 
-                {/* Manecilla de HORA con Punta de Flecha arrastrable */}
+                {/* Manecilla de HORA Tradicional arrastrable */}
                 <div
                   onPointerDown={(e) => {
                     e.stopPropagation();
                     setActiveHandDrag('hour');
                   }}
-                  className="absolute w-3.5 h-22 bg-gradient-to-t from-rose-600 to-rose-400 rounded-full origin-bottom cursor-pointer shadow-xl z-10"
+                  className="absolute origin-bottom z-10 flex flex-col items-center cursor-pointer select-none group"
                   style={{
+                    width: '14px',
+                    height: '88px',
                     top: 'calc(50% - 88px)',
                     transform: `rotate(${hourAngle}deg)`,
                   }}
                 >
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-0 h-0 border-x-[9px] border-x-transparent border-b-[16px] border-b-rose-400 shadow-sm" />
+                  <div className="w-0 h-0 border-x-[5px] border-x-transparent border-b-[14px] border-b-rose-300" />
+                  <div className="w-2.5 flex-1 bg-gradient-to-r from-rose-600 via-rose-400 to-rose-600 shadow-lg relative">
+                    <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[1px] bg-white/60" />
+                  </div>
+                  <div className="w-3.5 h-4 bg-rose-800 rounded-b-md shadow-sm -mb-2" />
                 </div>
 
-                {/* Manecilla de MINUTO con Punta de Flecha arrastrable (Sin segundero tradicional) */}
+                {/* Manecilla de MINUTO Tradicional arrastrable */}
                 <div
                   onPointerDown={(e) => {
                     e.stopPropagation();
                     setActiveHandDrag('minute');
                   }}
-                  className="absolute w-2.5 h-30 bg-gradient-to-t from-cyan-600 to-cyan-300 rounded-full origin-bottom cursor-pointer shadow-xl z-20"
+                  className="absolute origin-bottom z-20 flex flex-col items-center cursor-pointer select-none group"
                   style={{
+                    width: '12px',
+                    height: '120px',
                     top: 'calc(50% - 120px)',
                     transform: `rotate(${minuteAngle}deg)`,
                   }}
                 >
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-0 h-0 border-x-[8px] border-x-transparent border-b-[16px] border-b-cyan-300 shadow-sm" />
+                  <div className="w-0 h-0 border-x-[4px] border-x-transparent border-b-[16px] border-b-cyan-200" />
+                  <div className="w-2 flex-1 bg-gradient-to-r from-cyan-600 via-cyan-300 to-cyan-600 shadow-lg relative">
+                    <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[1px] bg-white/70" />
+                  </div>
+                  <div className="w-3 h-5 bg-cyan-800 rounded-b-md shadow-sm -mb-2" />
                 </div>
 
-                {/* Centro / Eje */}
-                <div className="w-6 h-6 rounded-full bg-rose-400 border-2 border-slate-900 shadow-md z-30 pointer-events-none" />
+                {/* Centro / Eje metálico tradicional */}
+                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-slate-200 via-slate-400 to-slate-600 border-2 border-slate-900 shadow-lg z-30 pointer-events-none flex items-center justify-center">
+                  <div className="w-1.5 h-1.5 rounded-full bg-rose-400 shadow-inner" />
+                </div>
               </div>
             </div>
 

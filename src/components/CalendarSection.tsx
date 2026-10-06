@@ -44,9 +44,9 @@ const MONTH_NAMES = [
 ];
 
 export const CalendarSection: React.FC = () => {
-  const { reminders } = useApp();
+  const { reminders, alarms } = useApp();
 
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 9, 1)); // Octubre 2026
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   const year = currentDate.getFullYear();
@@ -70,10 +70,18 @@ export const CalendarSection: React.FC = () => {
 
   const selectedCommemoration = selectedDay ? DAY_COMMEMORATIONS[selectedDay] : null;
 
-  // Check if day has reminders scheduled
+  // Real events for day
+  const getDayEvents = (dayNum: number) => {
+    const dayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+    const dayRems = (reminders || []).filter(
+      (r) => r.specificDateTime?.startsWith(dayStr) || r.dueTime?.startsWith(dayStr)
+    );
+    const dayAlms = (alarms || []).filter((a) => a.date === dayStr);
+    return { reminders: dayRems, alarms: dayAlms, count: dayRems.length + dayAlms.length };
+  };
+
   const dayHasEvent = (dayNum: number) => {
-    // If day is divisible by 5 or 2 (or any reminders exist for demo), show 🚨
-    return (dayNum % 6 === 0 || dayNum === 2 || dayNum === 15);
+    return getDayEvents(dayNum).count > 0;
   };
 
   return (
@@ -206,14 +214,45 @@ export const CalendarSection: React.FC = () => {
               </p>
             </div>
 
-            {/* Preview Color Note del día */}
+            {/* Recordatorios y Notas Adhesivas de la Fecha */}
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
               <span className="text-[10px] text-rose-300 uppercase font-black tracking-wider flex items-center gap-1">
-                <Bell className="w-3.5 h-3.5" /> Recordatorios y Notas Adhesivas de la Fecha
+                <Bell className="w-3.5 h-3.5" /> Recordatorios y Notas de la Fecha
               </span>
-              <div className="p-3 rounded-xl bg-amber-200 text-amber-950 font-bold text-xs shadow-sm">
-                📌 {reminders[0]?.title || 'Tomar vitaminas y pastillas del mediodía'}
-              </div>
+              {(() => {
+                const dayData = getDayEvents(selectedDay);
+                if (dayData.count === 0) {
+                  return (
+                    <div className="p-4 rounded-xl bg-white/5 text-center text-white/50 text-xs">
+                      No hay alarmas ni notas guardadas para este día. Se agregarán aquí automáticamente cuando tú o tu pareja las programen.
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-2">
+                    {dayData.reminders.map((r) => (
+                      <div
+                        key={r.id}
+                        className="p-3 rounded-xl bg-amber-100/90 text-amber-950 font-bold text-xs shadow-sm flex items-center justify-between"
+                      >
+                        <span>📝 {r.title}</span>
+                        <span className="text-[10px] opacity-70">
+                          {r.dueTime ? new Date(r.dueTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                        </span>
+                      </div>
+                    ))}
+                    {dayData.alarms.map((a) => (
+                      <div
+                        key={a.id}
+                        className="p-3 rounded-xl bg-rose-100/90 text-rose-950 font-bold text-xs shadow-sm flex items-center justify-between"
+                      >
+                        <span>⏰ {a.label}</span>
+                        <span className="text-[10px] font-mono">{a.time}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="pt-2">

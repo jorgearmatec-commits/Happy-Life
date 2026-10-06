@@ -26,20 +26,12 @@ export const ModalPortal: React.FC<ModalPortalProps> = ({
 }) => {
   const modalContentRef = useRef<HTMLDivElement>(null);
 
-  // Lock body scroll and handle visualViewport mobile adjustments
+  // Lock body scroll cleanly without erratic jitter on virtual keyboard
   useEffect(() => {
     if (!isOpen) return;
 
     const originalOverflow = document.body.style.overflow;
-    const originalPosition = document.body.style.position;
     document.body.style.overflow = 'hidden';
-
-    // Focus & scroll into view centered
-    const timer = setTimeout(() => {
-      if (modalContentRef.current) {
-        modalContentRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 50);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -48,25 +40,9 @@ export const ModalPortal: React.FC<ModalPortalProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
 
-    // Support visualViewport for mobile virtual keyboard
-    const handleViewportResize = () => {
-      if (window.visualViewport && modalContentRef.current) {
-        // Keep in center of visualViewport
-        const offsetTop = window.visualViewport.offsetTop;
-        modalContentRef.current.style.transform = `translateY(${offsetTop}px)`;
-      }
-    };
-
-    window.visualViewport?.addEventListener('resize', handleViewportResize);
-    window.visualViewport?.addEventListener('scroll', handleViewportResize);
-
     return () => {
-      clearTimeout(timer);
       document.body.style.overflow = originalOverflow;
-      document.body.style.position = originalPosition;
       window.removeEventListener('keydown', handleKeyDown);
-      window.visualViewport?.removeEventListener('resize', handleViewportResize);
-      window.visualViewport?.removeEventListener('scroll', handleViewportResize);
     };
   }, [isOpen, onClose]);
 
