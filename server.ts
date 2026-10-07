@@ -14,6 +14,116 @@ const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: '15mb' }));
 
+// Servir la carpeta pública de forma estática siempre (imágenes webp de baraja, iconos, manifest)
+app.use(express.static(path.resolve(__dirname, 'public')));
+app.use('/cards', express.static(path.resolve(__dirname, 'public/cards')));
+
+// ---------------------------------------------------------------------------
+// SINCRONIZACIÓN EN TIEMPO REAL ENTRE APP 1 Y APP 2 (PAREJA INDEPENDIENTE)
+// ---------------------------------------------------------------------------
+interface SyncMessage {
+  id: string;
+  sender: 'me' | 'partner';
+  senderName: string;
+  text?: string;
+  imageUrl?: string;
+  audioUrl?: string;
+  timestamp: string;
+}
+
+interface PeerSyncData {
+  lastUpdated: number;
+  userProfile?: any; // estado, batería eléctrica, señal, ubicación en tiempo real
+  messages: SyncMessage[];
+  remindersShared?: any[];
+}
+
+const syncRooms: Map<string, { app1: PeerSyncData; app2: PeerSyncData }> = new Map();
+
+// Endpoint para vincular o crear código de pareja
+app.post('/api/sync/pair', (req, res) => {
+  const { pairCode } = req.body;
+  const cleanCode = (pairCode || 'DUO-AMOR').trim().toUpperCase();
+
+  if (!syncRooms.has(cleanCode)) {
+    syncRooms.set(cleanCode, {
+      app1: { lastUpdated: Date.now(), messages: [] },
+      app2: { lastUpdated: Date.now(), messages: [] },
+    });
+  }
+
+  return res.json({
+    success: true,
+    pairCode: cleanCode,
+    connectedUsers: 2,
+  });
+});
+
+// Endpoint para empujar actualización (desde App 1 o App 2)
+app.post('/api/sync/push', (req, res) => {
+  const { pairCode, role, userProfile, newMessage, remindersShared } = req.body;
+  const cleanCode = (pairCode || 'DUO-AMOR').trim().toUpperCase();
+
+  let room = syncRooms.get(cleanCode);
+  if (!room) {
+    room = {
+      app1: { lastUpdated: Date.now(), messages: [] },
+      app2: { lastUpdated: Date.now(), messages: [] },
+    };
+    syncRooms.set(cleanCode, room);
+  }
+
+  const slot = role === 'partner' ? 'app2' : 'app1';
+  const targetPeer = role === 'partner' ? 'app1' : 'app2';
+
+  if (userProfile) {
+    room[slot].userProfile = userProfile;
+    room[slot].lastUpdated = Date.now();
+  }
+
+  if (newMessage) {
+    // Almacenar en ambas ranuras
+    room[slot].messages.push(newMessage);
+    room[targetPeer].messages.push(newMessage);
+    // Limitar historial
+    if (room[slot].messages.length > 100) room[slot].messages.shift();
+    if (room[targetPeer].messages.length > 100) room[targetPeer].messages.shift();
+    room[slot].lastUpdated = Date.now();
+    room[targetPeer].lastUpdated = Date.now();
+  }
+
+  if (remindersShared) {
+    room[slot].remindersShared = remindersShared;
+    room[targetPeer].remindersShared = remindersShared;
+    room[slot].lastUpdated = Date.now();
+    room[targetPeer].lastUpdated = Date.now();
+  }
+
+  return res.json({ success: true, timestamp: Date.now() });
+});
+
+// Endpoint para traer actualizaciones del compañero
+app.get('/api/sync/pull', (req, res) => {
+  const cleanCode = ((req.query.pairCode as string) || 'DUO-AMOR').trim().toUpperCase();
+  const role = (req.query.role as string) || 'me';
+
+  const room = syncRooms.get(cleanCode);
+  if (!room) {
+    return res.json({ success: true, partnerProfile: null, newMessages: [], remindersShared: null });
+  }
+
+  const partnerSlot = role === 'partner' ? 'app1' : 'app2';
+  const mySlot = role === 'partner' ? 'app2' : 'app1';
+
+  return res.json({
+    success: true,
+    partnerProfile: room[partnerSlot].userProfile || null,
+    messages: room[mySlot].messages || [],
+    remindersShared: room[partnerSlot].remindersShared || null,
+    lastUpdated: room[partnerSlot].lastUpdated,
+  });
+});
+
 // ---------------------------------------------------------------------------
 // 1. ENDPOINT GEMINI AI (SERVER-SIDE SEGÚN SKILL GEMINI-API)
 // ---------------------------------------------------------------------------

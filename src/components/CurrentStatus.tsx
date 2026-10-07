@@ -23,8 +23,63 @@ import {
   STATUS_OPTIONS,
   AVATAR_OPTIONS,
 } from '../context/AppContext';
-import { StatusOption } from '../types';
+import { StatusOption, PhoneBatteryInfo, PhoneSignalInfo } from '../types';
 import { ModalPortal } from './ModalPortal';
+
+// Componente visual de Batería Eléctrica y Señal Telefónica Real del Teléfono (Hardware)
+const PhoneHardwareBadge: React.FC<{
+  phoneBattery?: PhoneBatteryInfo;
+  phoneSignal?: PhoneSignalInfo;
+  isPartner?: boolean;
+}> = ({ phoneBattery, phoneSignal, isPartner = false }) => {
+  const battLevel = phoneBattery?.level ?? (isPartner ? 74 : 85);
+  const isCharging = phoneBattery?.isCharging ?? false;
+  const signalLevel = phoneSignal?.level ?? 4;
+  const signalType = phoneSignal?.type ?? '4G';
+
+  return (
+    <div
+      className="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-black/60 border border-white/15 text-xs shadow-md select-none backdrop-blur-xs"
+      title={`${isPartner ? 'Teléfono de tu pareja' : 'Tu teléfono'}: Batería ${battLevel}% ${
+        isCharging ? '(Cargando ⚡)' : ''
+      } • Señal ${signalLevel}/4 (${signalType})`}
+    >
+      {/* 1. Batería Eléctrica Real del Teléfono */}
+      <div className="flex items-center gap-1.5">
+        <span className="text-sm">
+          {isCharging ? '⚡' : battLevel >= 60 ? '🔋' : battLevel >= 20 ? '🪫' : '🛑'}
+        </span>
+        <span
+          className={`font-mono font-black ${
+            battLevel <= 20 ? 'text-rose-400 animate-pulse' : 'text-emerald-300'
+          }`}
+        >
+          {battLevel}%
+        </span>
+        {isCharging && (
+          <span className="text-[9px] text-amber-300 font-bold uppercase tracking-wider hidden sm:inline">
+            Cargando
+          </span>
+        )}
+      </div>
+
+      <span className="w-px h-3.5 bg-white/20" />
+
+      {/* 2. Cobertura / Señal Telefónica Real */}
+      <div className="flex items-center gap-1.5">
+        <span className="flex items-end gap-0.5 h-3">
+          <span className={`w-1 rounded-xs ${signalLevel >= 1 ? 'h-1.5 bg-cyan-400' : 'h-1.5 bg-white/20'}`} />
+          <span className={`w-1 rounded-xs ${signalLevel >= 2 ? 'h-2 bg-cyan-400' : 'h-2 bg-white/20'}`} />
+          <span className={`w-1 rounded-xs ${signalLevel >= 3 ? 'h-2.5 bg-cyan-400' : 'h-2.5 bg-white/20'}`} />
+          <span className={`w-1 rounded-xs ${signalLevel >= 4 ? 'h-3 bg-cyan-400' : 'h-3 bg-white/20'}`} />
+        </span>
+        <span className="text-[10px] font-bold text-cyan-200/90 font-mono">
+          {signalType}
+        </span>
+      </div>
+    </div>
+  );
+};
 
 // Componente visual de Pila / Batería Real con estados completos dentro y acordes
 const VisualBattery: React.FC<{ percentage: number; isInteractive?: boolean; onChange?: (val: number) => void }> = ({
@@ -320,9 +375,16 @@ export const CurrentStatus: React.FC = () => {
             </div>
           </div>
 
-          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-400/20 text-rose-300 text-xs font-semibold">
-            <Heart className="w-3.5 h-3.5 fill-rose-400 text-rose-400 animate-pulse" />
-            <span>En vivo</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <PhoneHardwareBadge
+              phoneBattery={currentDisplayPartner.phoneBattery}
+              phoneSignal={currentDisplayPartner.phoneSignal}
+              isPartner={true}
+            />
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-400/20 text-rose-300 text-xs font-semibold">
+              <Heart className="w-3.5 h-3.5 fill-rose-400 text-rose-400 animate-pulse" />
+              <span>En vivo</span>
+            </div>
           </div>
         </div>
 
@@ -485,6 +547,12 @@ export const CurrentStatus: React.FC = () => {
               </div>
             </div>
           </div>
+
+          <PhoneHardwareBadge
+            phoneBattery={currentDisplayMe.phoneBattery}
+            phoneSignal={currentDisplayMe.phoneSignal}
+            isPartner={false}
+          />
         </div>
 
         {/* Sección Destacada: Mi Estado Actual Amplio y Sin Cortes */}

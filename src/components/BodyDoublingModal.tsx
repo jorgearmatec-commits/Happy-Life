@@ -1010,133 +1010,7 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
                 </div>
               </div>
 
-              {/* BUSCADOR DE CANCIONES */}
-              <div className="space-y-2">
-                <form onSubmit={handleYtmSearchSubmit} className="flex gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      type="text"
-                      value={ytmSearchQuery}
-                      onChange={(e) => {
-                        setYtmSearchQuery(e.target.value);
-                        if (e.target.value.trim().length > 1) {
-                          executeYtmSearch(e.target.value);
-                        } else if (e.target.value.trim().length === 0) {
-                          setYtmSearchResults([]);
-                          setHasSearchedYtm(false);
-                        }
-                      }}
-                      placeholder="Busca cualquier canción, artista, álbum o género (ej. Coldplay, Bad Bunny, Lofi...)"
-                      className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-black/50 border border-white/20 text-xs text-white placeholder-white/40 focus:outline-none focus:border-rose-400"
-                    />
-                    <Search className="w-4 h-4 text-white/40 absolute left-3 top-3" />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isSearchingYtm}
-                    className="px-4 py-2.5 rounded-2xl btn-3d-rose text-white text-xs font-bold cursor-pointer shrink-0 flex items-center gap-1.5 disabled:opacity-50"
-                  >
-                    {isSearchingYtm ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Buscando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Search className="w-3.5 h-3.5" />
-                        <span>Buscar</span>
-                      </>
-                    )}
-                  </button>
-                </form>
-
-                {/* LISTA DE RESULTADOS DE BÚSQUEDA DEBAJO DEL BUSCADOR */}
-                {ytmSearchResults.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="p-3.5 rounded-2xl bg-black/70 border border-rose-500/40 space-y-2 shadow-2xl"
-                  >
-                    <div className="flex items-center justify-between pb-1 border-b border-white/10">
-                      <span className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
-                        <Search className="w-3.5 h-3.5 text-rose-400" />
-                        <span>Resultados de YouTube Music ({ytmSearchResults.length}):</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setYtmSearchResults([]);
-                          setHasSearchedYtm(false);
-                          setYtmSearchQuery('');
-                        }}
-                        className="text-[11px] text-white/50 hover:text-white flex items-center gap-1 cursor-pointer"
-                      >
-                        <X className="w-3 h-3" />
-                        <span>Cerrar lista</span>
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">
-                      {ytmSearchResults.map((track) => {
-                        const isCurrent = activeTrack.id === track.id;
-                        return (
-                          <div
-                            key={track.id}
-                            className={`p-2.5 rounded-xl border flex items-center justify-between gap-2.5 text-left transition-all group ${
-                              isCurrent
-                                ? 'bg-rose-500/30 border-rose-400 shadow-md ring-1 ring-rose-400/50'
-                                : 'bg-white/5 hover:bg-rose-500/15 border-white/10 hover:border-rose-400/30'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <img
-                                src={track.albumArt}
-                                alt={track.title}
-                                className="w-11 h-11 rounded-lg object-cover shrink-0 shadow-sm"
-                              />
-                              <div className="min-w-0">
-                                <p className="text-xs font-bold text-white truncate group-hover:text-rose-200">
-                                  {track.title}
-                                </p>
-                                <p className="text-[10px] text-white/60 truncate">
-                                  {track.artist}
-                                </p>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-white/10 text-white/70 font-mono">
-                                    ⏱️ {track.duration || '3:30'}
-                                  </span>
-                                  {track.genre && (
-                                    <span className="text-[9px] text-rose-300/80 font-medium truncate">
-                                      {track.genre}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => handleSelectYtmTrack(track)}
-                              className="px-3 py-1.5 rounded-lg bg-rose-500 hover:bg-rose-400 active:scale-95 text-white text-[10px] font-black shrink-0 flex items-center gap-1 transition-all cursor-pointer shadow-md"
-                            >
-                              <Play className="w-3 h-3 fill-current" />
-                              <span>{isCurrent && isPlayingYtm ? 'Sonando' : 'Elegir'}</span>
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </motion.div>
-                )}
-
-                {hasSearchedYtm && ytmSearchResults.length === 0 && (
-                  <p className="text-xs text-white/50 italic p-2 text-center">
-                    No se encontraron coincidencias para "{ytmSearchQuery}". Intenta con el nombre de otro artista o canción.
-                  </p>
-                )}
-              </div>
-
-              {/* REPRODUCTOR ACTIVO: CARÁTULA, TÍTULO, Y GESTIÓN COMPLETA */}
+              {/* REPRODUCTOR ACTIVO ARRIBA: CARÁTULA, TÍTULO, CONTROLES Y GESTIÓN COMPLETA */}
               <div className="p-4 rounded-3xl bg-black/60 border border-rose-500/25 space-y-3 shadow-lg">
                 <div className="flex flex-col sm:flex-row items-center gap-4">
                   {/* Carátula de álbum con indicador de onda */}
@@ -1330,7 +1204,7 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
                     <h5 className="text-sm font-black text-white truncate">{activeTrack.title}</h5>
                     <p className="text-xs text-white/60 truncate">{activeTrack.artist}</p>
                     <span className="text-[10px] text-emerald-300 flex items-center gap-1 mt-0.5 font-medium">
-                      ✓ Reproducción continua en segundo plano activa (no se corta al cerrar)
+                      ✓ Reproducción continua en segundo plano activa (no se corta al salir)
                     </span>
                   </div>
                 </div>
@@ -1344,6 +1218,138 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
                   <ExternalLink className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Ver Video</span>
                 </button>
+              </div>
+
+              {/* BUSCADOR DE CANCIONES (ABAJO DEL REPRODUCTOR) */}
+              <div className="space-y-2 pt-1 border-t border-rose-500/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Search className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Búsqueda de Canciones & Artistas:</span>
+                  </span>
+                </div>
+                <form onSubmit={handleYtmSearchSubmit} className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={ytmSearchQuery}
+                      onChange={(e) => {
+                        setYtmSearchQuery(e.target.value);
+                        if (e.target.value.trim().length > 1) {
+                          executeYtmSearch(e.target.value);
+                        } else if (e.target.value.trim().length === 0) {
+                          setYtmSearchResults([]);
+                          setHasSearchedYtm(false);
+                        }
+                      }}
+                      placeholder="Busca cualquier canción, artista, álbum o género (ej. Coldplay, Bad Bunny, Lofi...)"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-black/50 border border-white/20 text-xs text-white placeholder-white/40 focus:outline-none focus:border-rose-400"
+                    />
+                    <Search className="w-4 h-4 text-white/40 absolute left-3 top-3" />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isSearchingYtm}
+                    className="px-4 py-2.5 rounded-2xl btn-3d-rose text-white text-xs font-bold cursor-pointer shrink-0 flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isSearchingYtm ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Buscando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Search className="w-3.5 h-3.5" />
+                        <span>Buscar</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                {/* LISTA DE RESULTADOS DE BÚSQUEDA DEBAJO DEL BUSCADOR */}
+                {ytmSearchResults.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-3.5 rounded-2xl bg-black/70 border border-rose-500/40 space-y-2 shadow-2xl"
+                  >
+                    <div className="flex items-center justify-between pb-1 border-b border-white/10">
+                      <span className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
+                        <Search className="w-3.5 h-3.5 text-rose-400" />
+                        <span>Resultados de YouTube Music ({ytmSearchResults.length}):</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setYtmSearchResults([]);
+                          setHasSearchedYtm(false);
+                          setYtmSearchQuery('');
+                        }}
+                        className="text-[11px] text-white/50 hover:text-white flex items-center gap-1 cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                        <span>Cerrar lista</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">
+                      {ytmSearchResults.map((track) => {
+                        const isCurrent = activeTrack.id === track.id;
+                        return (
+                          <div
+                            key={track.id}
+                            className={`p-2.5 rounded-xl border flex items-center justify-between gap-2.5 text-left transition-all group ${
+                              isCurrent
+                                ? 'bg-rose-500/30 border-rose-400 shadow-md ring-1 ring-rose-400/50'
+                                : 'bg-white/5 hover:bg-rose-500/15 border-white/10 hover:border-rose-400/30'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <img
+                                src={track.albumArt}
+                                alt={track.title}
+                                className="w-11 h-11 rounded-lg object-cover shrink-0 shadow-sm"
+                              />
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-white truncate group-hover:text-rose-200">
+                                  {track.title}
+                                </p>
+                                <p className="text-[10px] text-white/60 truncate">
+                                  {track.artist}
+                                </p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-white/10 text-white/70 font-mono">
+                                    ⏱️ {track.duration || '3:30'}
+                                  </span>
+                                  {track.genre && (
+                                    <span className="text-[9px] text-rose-300/80 font-medium truncate">
+                                      {track.genre}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleSelectYtmTrack(track)}
+                              className="px-3 py-1.5 rounded-lg bg-rose-500 hover:bg-rose-400 active:scale-95 text-white text-[10px] font-black shrink-0 flex items-center gap-1 transition-all cursor-pointer shadow-md"
+                            >
+                              <Play className="w-3 h-3 fill-current" />
+                              <span>{isCurrent && isPlayingYtm ? 'Sonando' : 'Elegir'}</span>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+
+                {hasSearchedYtm && ytmSearchResults.length === 0 && (
+                  <p className="text-xs text-white/50 italic p-2 text-center">
+                    No se encontraron coincidencias para "{ytmSearchQuery}". Intenta con el nombre de otro artista o canción.
+                  </p>
+                )}
               </div>
 
               {/* PLAYLIST / CATÁLOGO RECOMENDADO EN PAREJA */}
@@ -1985,17 +1991,33 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
               </div>
             </div>
 
-            {/* Controles de reproducción */}
-            <div className="flex items-center gap-1.5 shrink-0">
+            {/* Controles de reproducción: 3 botones esenciales (Retroceder, Play/Pausa, Adelantar) */}
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              {/* 1. Retroceder */}
               <button
                 type="button"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isPlayingYtm) handlePrevTrack();
+                  else if (isPlayingVlc) handlePrevVlcTrack();
+                }}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-white flex items-center justify-center transition-all cursor-pointer shadow-sm"
+                title="Canción anterior / Retroceder"
+              >
+                <SkipBack className="w-3.5 h-3.5" />
+              </button>
+
+              {/* 2. Play / Pausa */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
                   if (isPlayingYtm) toggleYtmPlay();
                   else if (isPlayingYtn) setIsPlayingYtn(!isPlayingYtn);
                   else if (activeVlcTrack) toggleVlcPlay(activeVlcTrack);
                 }}
                 className="w-9 h-9 rounded-full bg-rose-500 hover:bg-rose-400 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer shadow-md"
-                title="Pausar / Reanudar"
+                title={isPlayingYtm || isPlayingYtn || isPlayingVlc ? 'Pausar' : 'Reproducir'}
               >
                 {isPlayingYtm || isPlayingYtn || isPlayingVlc ? (
                   <Pause className="w-4 h-4 fill-current" />
@@ -2004,28 +2026,45 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
                 )}
               </button>
 
+              {/* 3. Adelantar */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isPlayingYtm) handleNextTrack();
+                  else if (isPlayingVlc) handleNextVlcTrack();
+                }}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-white flex items-center justify-center transition-all cursor-pointer shadow-sm"
+                title="Siguiente canción / Adelantar"
+              >
+                <SkipForward className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Botón Maximizar / Abrir modal completo */}
               <button
                 type="button"
                 onClick={openModal}
-                className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-[11px] font-bold text-white/90 flex items-center gap-1 transition-all cursor-pointer"
+                className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-[11px] font-bold text-white/90 flex items-center gap-1 transition-all cursor-pointer ml-1"
                 title="Abrir interfaz completa de Música Duo"
               >
                 <Maximize2 className="w-3.5 h-3.5 text-rose-300" />
                 <span className="hidden sm:inline">Abrir</span>
               </button>
 
+              {/* Botón Cerrar y detener */}
               <button
                 type="button"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setIsPlayingYtm(false);
                   setIsPlayingYtn(false);
                   setIsPlayingVlc(false);
                   updateMyCurrentTrack(undefined);
                 }}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-white/60 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-white/60 hover:text-white flex items-center justify-center transition-all cursor-pointer"
                 title="Detener música y cerrar"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>

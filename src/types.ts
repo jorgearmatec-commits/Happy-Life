@@ -31,13 +31,25 @@ export interface PlayingTrackInfo {
   updatedAt?: string;
 }
 
+export interface PhoneBatteryInfo {
+  level: number; // 0 - 100% de batería eléctrica real del teléfono
+  isCharging?: boolean;
+}
+
+export interface PhoneSignalInfo {
+  level: number; // 0 a 4 barras
+  type?: '5G' | '4G' | 'LTE' | 'WiFi' | '3G' | 'Sin señal';
+}
+
 export interface UserProfile {
   id: string;
   name: string;
   avatar: string;
   status: StatusOption;
   statusEmoji: string;
-  socialBattery: number; // 0 - 100
+  socialBattery: number; // 0 - 100 (Batería social emocional)
+  phoneBattery?: PhoneBatteryInfo; // Batería eléctrica real del teléfono
+  phoneSignal?: PhoneSignalInfo; // Cantidad de señal telefónica actual
   feeling: EmotionOption;
   feelingEmoji: string;
   feelingUpdatedAt: string;
@@ -242,4 +254,6 @@ export interface AppSettings {
   activeSectionsOrder: string[];
   activeMenu: string; // Current single independent menu
   recentEmojis: string[];
+  duoPairCode?: string; // Código de sincronización para conectar App 1 y App 2
+  locationIntervalSecs?: number; // Rango de actualización en segundos para optimización (ej. 30s)
 }

@@ -246,23 +246,72 @@ export const LocationSection: React.FC = () => {
 
         {/* MINI VENTANA GOOGLE MAPS QUE SE ABRE ABAJO Y SE PUEDE EXPANDIR */}
         {settings.realTimeLocationActive && (
-          <div className="rounded-3xl overflow-hidden border-2 border-[#1a4fff]/40 bg-black/60 shadow-2xl space-y-2 p-3">
-            <div className="flex items-center justify-between px-2 pt-1 text-xs">
+          <div className="rounded-3xl overflow-hidden border-2 border-[#1a4fff]/40 bg-black/60 shadow-2xl space-y-3 p-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs">
               <span className="font-black text-blue-300 flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#1a4fff] animate-ping" />
-                Mapa Satelital en Tiempo Real de tu Pareja
+                <span>Radar GPS en Tiempo Real de tu Pareja</span>
               </span>
-              <button
-                type="button"
-                onClick={() => setIsMapExpanded(true)}
-                className="flex items-center gap-1 text-[11px] font-bold text-white/80 hover:text-white bg-white/10 px-2.5 py-1 rounded-lg cursor-pointer"
-              >
-                <Maximize2 className="w-3.5 h-3.5" />
-                <span>Expandir Mapa</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSendExactLocation}
+                  disabled={isLoadingGps}
+                  className="flex items-center gap-1 text-[11px] font-bold text-blue-200 bg-blue-500/20 hover:bg-blue-500/30 px-2.5 py-1 rounded-xl cursor-pointer border border-blue-400/30"
+                  title="Actualizar posición GPS ahora"
+                >
+                  <Sparkles className="w-3 h-3 text-blue-300" />
+                  <span>{isLoadingGps ? 'Actualizando...' : 'Refrescar GPS'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsMapExpanded(true)}
+                  className="flex items-center gap-1 text-[11px] font-bold text-white/80 hover:text-white bg-white/10 px-2.5 py-1 rounded-xl cursor-pointer"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  <span>Expandir</span>
+                </button>
+              </div>
             </div>
 
-            <div className="rounded-2xl overflow-hidden aspect-video max-h-56 bg-slate-900 border border-white/10 relative">
+            {/* Selector de intervalo de actualización (Optimización de Batería y RAM) */}
+            <div className="p-2.5 rounded-2xl bg-white/5 border border-white/10 space-y-1.5">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-white/70 font-semibold">Intervalo de actualización optimizado:</span>
+                <span className="text-blue-300 font-bold font-mono">
+                  Cada {settings.locationIntervalSecs || 30}s
+                </span>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[
+                  { secs: 15, label: '15s (Rápido)' },
+                  { secs: 30, label: '30s (Óptimo)' },
+                  { secs: 60, label: '1 min' },
+                  { secs: 120, label: '2 min (Batería)' },
+                ].map((item) => {
+                  const isActive = (settings.locationIntervalSecs || 30) === item.secs;
+                  return (
+                    <button
+                      key={item.secs}
+                      type="button"
+                      onClick={() => updateSettings({ locationIntervalSecs: item.secs })}
+                      className={`py-1 rounded-xl text-[10px] font-bold transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-[#1a4fff] text-white shadow-sm ring-1 ring-blue-300'
+                          : 'bg-white/10 hover:bg-white/20 text-white/70'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[9px] text-white/50 text-center">
+                💡 30 segundos recomendado para teléfonos gama baja (2-4GB RAM) y ahorro de batería.
+              </p>
+            </div>
+
+            <div className="rounded-2xl overflow-hidden aspect-video max-h-56 bg-slate-900 border border-white/10 relative shadow-inner">
               <iframe
                 title="Google Maps Miniatura"
                 src={`https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`}
@@ -270,9 +319,19 @@ export const LocationSection: React.FC = () => {
                 loading="lazy"
               />
             </div>
-            <p className="text-[10px] text-white/50 text-center">
-              Transmisión activa hasta que desactives el botón de tiempo real.
-            </p>
+
+            <div className="flex items-center justify-between px-1 text-[11px] text-white/60">
+              <span>Coordenadas: {lat.toFixed(4)}, {lng.toFixed(4)}</span>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-300 hover:text-blue-200 font-bold flex items-center gap-1"
+              >
+                <span>Abrir en Google Maps</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
           </div>
         )}
 

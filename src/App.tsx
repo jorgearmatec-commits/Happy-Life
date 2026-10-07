@@ -355,22 +355,25 @@ const MainAppContent: React.FC = () => {
               <div
                 className={`w-full h-full ${settings.backgroundTheme} transition-all duration-700`}
               />
+            ) : (settings.highPerformanceMode || settings.lowEndDeviceMode) ? (
+              /* Fondo Ligero Ultra Optimizado para Teléfonos 2 a 4 GB RAM (0% Lag) */
+              <div className="w-full h-full bg-gradient-to-br from-[#0c0f17] via-[#101424] to-[#07090f] relative overflow-hidden" />
             ) : (
-              /* Aurora Dinámica Pantalla Completa Uniforme */
-              <div className="w-full h-full bg-[#090c12] relative overflow-hidden">
-                <div className="absolute top-[-10%] left-[-10%] w-[65vw] h-[65vw] rounded-full bg-[#722f37]/50 blur-[130px] pointer-events-none animate-aurora" />
-                <div className="absolute top-[30%] right-[-10%] w-[60vw] h-[60vw] rounded-full bg-[#2563eb]/45 blur-[140px] pointer-events-none animate-aurora" />
-                <div className="absolute bottom-[-10%] left-[10%] w-[55vw] h-[55vw] rounded-full bg-[#556b2f]/45 blur-[130px] pointer-events-none animate-aurora" />
-                <div className="absolute top-[60%] right-[25%] w-[50vw] h-[50vw] rounded-full bg-[#38bdf8]/35 blur-[150px] pointer-events-none animate-aurora" />
+              /* Aurora Dinámica Pantalla Completa para Teléfonos Gama Alta (8 a 12 GB RAM) */
+              <div className="w-full h-full bg-[#090c12] relative overflow-hidden transform-gpu">
+                <div className="absolute top-[-10%] left-[-10%] w-[65vw] h-[65vw] rounded-full bg-[#722f37]/50 blur-[130px] pointer-events-none animate-aurora will-change-transform" />
+                <div className="absolute top-[30%] right-[-10%] w-[60vw] h-[60vw] rounded-full bg-[#2563eb]/45 blur-[140px] pointer-events-none animate-aurora will-change-transform" />
+                <div className="absolute bottom-[-10%] left-[10%] w-[55vw] h-[55vw] rounded-full bg-[#556b2f]/45 blur-[130px] pointer-events-none animate-aurora will-change-transform" />
+                <div className="absolute top-[60%] right-[25%] w-[50vw] h-[50vw] rounded-full bg-[#38bdf8]/35 blur-[150px] pointer-events-none animate-aurora will-change-transform" />
               </div>
             )}
           </div>,
           document.body
         )}
 
-      {/* Capa SVG Noise uniforme */}
-      {!settings.highPerformanceMode && (
-        <svg className="fixed inset-0 w-full h-full pointer-events-none -z-40 opacity-[0.035]">
+      {/* Capa SVG Noise uniforme (Desactivada en modo optimización para teléfonos 2-4GB) */}
+      {!settings.highPerformanceMode && !settings.lowEndDeviceMode && (
+        <svg className="fixed inset-0 w-full h-full pointer-events-none -z-40 opacity-[0.03]">
           <filter id="noiseFilter">
             <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch" />
           </filter>

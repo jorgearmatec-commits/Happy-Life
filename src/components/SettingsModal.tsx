@@ -1205,10 +1205,47 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <span>Conectar Cuenta de Google para Vincular con Pareja</span>
                       </button>
                       <p className="text-[10px] text-center text-white/50">
-                        Inicia sesión con tu cuenta de Google en ambos teléfonos para enlazar la app automáticamente.
+                        Inicia sesión con tu cuenta de Google en ambos teléfonos para enlazar la app automáticamente sin errores.
                       </p>
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* Código de Pareja Duo (Sincronización en Tiempo Real entre App 1 y App 2) */}
+              <div className="p-4 rounded-3xl bg-white/5 border border-white/10 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>🔗</span>
+                    <span>Código de Pareja Duo (App 1 ↔ App 2)</span>
+                  </h4>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                    Enlace Activo ✨
+                  </span>
+                </div>
+                <p className="text-[10px] text-white/60">
+                  Usa este mismo código en ambos teléfonos para vincular el chat, estados, batería del celular y ubicación en tiempo real:
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={settings.duoPairCode || 'DUO-AMOR'}
+                    onChange={(e) => updateSettings({ duoPairCode: e.target.value.toUpperCase().trim() })}
+                    placeholder="DUO-AMOR"
+                    className="flex-1 px-3 py-2 rounded-xl bg-black/60 border border-white/20 font-mono text-xs font-black text-rose-200 tracking-wider focus:outline-none focus:border-rose-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newCode = prompt('Ingresa tu nuevo Código de Pareja (ej. AMOR-2026):', settings.duoPairCode || 'DUO-AMOR');
+                      if (newCode && newCode.trim()) {
+                        updateSettings({ duoPairCode: newCode.trim().toUpperCase() });
+                      }
+                    }}
+                    className="px-3 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white text-xs font-bold cursor-pointer transition-colors shadow-sm"
+                  >
+                    Guardar Código
+                  </button>
                 </div>
               </div>
 
