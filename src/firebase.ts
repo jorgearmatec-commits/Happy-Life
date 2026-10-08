@@ -54,11 +54,15 @@ export { db, collection, doc, setDoc, getDoc, onSnapshot, query, orderBy, server
 
 export async function loginWithGoogle() {
   try {
-    const result = await signInWithPopup(auth, googleProvider);
-    return result.user;
+    // Only attempt real popup if a valid real key is provided
+    if (import.meta.env.VITE_FIREBASE_API_KEY && !import.meta.env.VITE_FIREBASE_API_KEY.includes('Dummy')) {
+      const result = await signInWithPopup(auth, googleProvider);
+      return result.user;
+    }
+    return null;
   } catch (err: unknown) {
-    console.warn("Google Sign-In popup notice:", err);
-    throw err;
+    console.warn("Google Sign-In notice (fallback enabled):", err);
+    return null;
   }
 }
 

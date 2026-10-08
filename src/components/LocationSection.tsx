@@ -35,6 +35,7 @@ export const LocationSection: React.FC = () => {
   const [isLoadingGps, setIsLoadingGps] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
+  const [mapTarget, setMapTarget] = useState<'partner' | 'me'>('partner');
 
   // Avisos rápidos completos en lista vertical
   const PRESETS = [
@@ -49,12 +50,13 @@ export const LocationSection: React.FC = () => {
   // 1. FUNCIÓN REAL: "📍 ESTOY AQUÍ" (Envía coordenada exacta GPS y actualiza estado)
   const handleSendExactLocation = () => {
     if (!settings.locationSharingConsent) {
-      alert('Debes activar el consentimiento mutuo de ubicación primero.');
+      setStatusMessage('⚠️ Activa el consentimiento de compartir ubicación abajo para autorizar.');
+      setTimeout(() => setStatusMessage(null), 4000);
       return;
     }
 
     setIsLoadingGps(true);
-    setStatusMessage('Obteniendo coordenadas GPS de alta precisión...');
+    setStatusMessage('Obteniendo coordenadas GPS de alta precisión en vivo...');
 
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -63,14 +65,33 @@ export const LocationSection: React.FC = () => {
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
           };
-          const name = `Ubicación GPS: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`;
+          const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const name = `GPS: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`;
           updateMyLocation(coords, name);
-          updateMyStatus({ lastAction: `📍 Estoy aquí (${name})` });
+          updateMyStatus({ lastAction: `📍 Estoy aquí (${name}) a las ${timeStr}` });
           setIsLoadingGps(false);
-          setStatusMessage(`¡Ubicación exacta compartida en tu estado: "${name}"!`);
-          setTimeout(() => setStatusMessage(null), 4000);
+          setStatusMessage(`¡Ubicación GPS real compartida en tu estado y enviada a tu pareja! (${name})`);
+          setTimeout(() => setStatusMessage(null), 4500);
         },
-        () => {
+        async () => {
+          // Intentar geolocalización por IP si el permiso del navegador en iframe está restringido
+          try {
+            const res = await fetch('https://ipapi.co/json/');
+            if (res.ok) {
+              const data = await res.json();
+              if (data.latitude && data.longitude) {
+                const coords = { lat: data.latitude, lng: data.longitude };
+                const cityName = `${data.city || 'Ciudad'}, ${data.region || ''} 📍`;
+                updateMyLocation(coords, cityName);
+                updateMyStatus({ lastAction: `📍 Estoy en ${cityName}` });
+                setIsLoadingGps(false);
+                setStatusMessage(`Ubicación aproximada enviada: ${cityName}`);
+                setTimeout(() => setStatusMessage(null), 4000);
+                return;
+              }
+            }
+          } catch {}
+
           const coords = { lat: -33.4489, lng: -70.6693 };
           const name = 'En casa / Zona segura 🏡';
           updateMyLocation(coords, name);
@@ -79,7 +100,7 @@ export const LocationSection: React.FC = () => {
           setStatusMessage(`Ubicación enviada a tu estado: "${name}"`);
           setTimeout(() => setStatusMessage(null), 4000);
         },
-        { enableHighAccuracy: true, timeout: 8000 }
+        { enableHighAccuracy: true, timeout: 9000, maximumAge: 5000 }
       );
     } else {
       setIsLoadingGps(false);
@@ -98,7 +119,9 @@ export const LocationSection: React.FC = () => {
   };
 
   const currentDisplayPartner = activeRole === 'me' ? partner : me;
+  const currentDisplayMe = activeRole === 'me' ? me : partner;
   const partnerLoc = currentDisplayPartner.lastLocation;
+  const myLoc = currentDisplayMe.lastLocation;
 
   // Real-time location toggle handler
   const handleToggleRealTime = () => {
@@ -110,12 +133,13 @@ export const LocationSection: React.FC = () => {
   };
 
   const handleShareOnSocial = async () => {
-    if (partnerLoc && navigator.share) {
+    const activeShareLoc = mapTarget === 'partner' ? partnerLoc : myLoc;
+    if (activeShareLoc && navigator.share) {
       try {
         await navigator.share({
           title: 'Ubicación Happy Life Duo',
-          text: `Estoy aquí: ${partnerLoc.name}. Ver en Google Maps:`,
-          url: `https://www.google.com/maps/search/?api=1&query=${partnerLoc.lat},${partnerLoc.lng}`,
+          text: `Estoy aquí: ${activeShareLoc.name}. Ver en Google Maps:`,
+          url: `https://www.google.com/maps/search/?api=1&query=${activeShareLoc.lat},${activeShareLoc.lng}`,
         });
       } catch {
         // user cancelled
@@ -123,8 +147,9 @@ export const LocationSection: React.FC = () => {
     }
   };
 
-  const lat = partnerLoc?.lat || -33.4489;
-  const lng = partnerLoc?.lng || -70.6693;
+  const activeDisplayLoc = mapTarget === 'partner' ? (partnerLoc || myLoc) : (myLoc || partnerLoc);
+  const lat = activeDisplayLoc?.lat || -33.4489;
+  const lng = activeDisplayLoc?.lng || -70.6693;
 
   return (
     <section className="w-full space-y-5 select-none">
@@ -248,10 +273,32 @@ export const LocationSection: React.FC = () => {
         {settings.realTimeLocationActive && (
           <div className="rounded-3xl overflow-hidden border-2 border-[#1a4fff]/40 bg-black/60 shadow-2xl space-y-3 p-3.5">
             <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs">
-              <span className="font-black text-blue-300 flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#1a4fff] animate-ping" />
-                <span>Radar GPS en Tiempo Real de tu Pareja</span>
-              </span>
+              {/* Selector de objetivo del radar (Pareja vs Yo) */}
+              <div className="flex p-0.5 rounded-xl bg-white/10">
+                <button
+                  type="button"
+                  onClick={() => setMapTarget('partner')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    mapTarget === 'partner'
+                      ? 'bg-[#1a4fff] text-white shadow-sm ring-1 ring-blue-300'
+                      : 'text-white/60 hover:text-white'
+                  }`}
+                >
+                  📍 Radar Pareja ({currentDisplayPartner.name || 'Pareja'})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMapTarget('me')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    mapTarget === 'me'
+                      ? 'bg-[#1a4fff] text-white shadow-sm ring-1 ring-blue-300'
+                      : 'text-white/60 hover:text-white'
+                  }`}
+                >
+                  🎯 Mi GPS en Vivo
+                </button>
+              </div>
+
               <div className="flex items-center gap-2">
                 <button
                   type="button"

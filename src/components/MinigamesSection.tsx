@@ -349,6 +349,8 @@ export const MinigamesSection: React.FC = () => {
   const [selectedTableCards, setSelectedTableCards] =
     useState<SpanishCard[]>([]);
 
+  const [availableCombos, setAvailableCombos] = useState<SpanishCard[][]>([]);
+
   const [escobaMessage, setEscobaMessage] = useState<string>(
     'Selecciona una carta de tu mano. El asistente detectará combinaciones que sumen 15.'
   );
@@ -392,6 +394,7 @@ export const MinigamesSection: React.FC = () => {
 
     setSelectedHandCard(null);
     setSelectedTableCards([]);
+    setAvailableCombos([]);
 
     setEscobaGameOver(false);
     setEscobaScores(null);
@@ -497,28 +500,36 @@ export const MinigamesSection: React.FC = () => {
   // -------------------------------------------------------------------------
 
   const handleSelectHandCard = (card: SpanishCard) => {
-    if (escobaTurn !== 'p1' || escobaGameOver) return;
+    if (escobaGameOver) return;
+    if (escobaMode === 'solo' && escobaTurn !== 'p1') return;
 
     if (selectedHandCard?.id === card.id) {
       setSelectedHandCard(null);
       setSelectedTableCards([]);
+      setAvailableCombos([]);
+      setEscobaMessage('Selección cancelada. Elige una carta para jugar.');
       return;
     }
 
     setSelectedHandCard(card);
 
-    const validCombs = findSumsOf15(
-      card,
-      escobaTable
-    );
+    const validCombs = findSumsOf15(card, escobaTable);
+    setAvailableCombos(validCombs);
 
     if (validCombs.length > 0) {
-      // Selecciona automáticamente
-      // la mejor combinación posible.
       setSelectedTableCards(validCombs[0]);
+      const isSweep = validCombs[0].length === escobaTable.length;
+      setEscobaMessage(
+        isSweep
+          ? '🧹 ¡¡COMBINACIÓN DE ESCOBA!! Limpias toda la mesa (+1 Pto). Pulsa abajo para capturar.'
+          : `✅ ¡Suma 15 encontrada! (${RANK_NAMES[card.rank] || card.rank} con valor ${card.value} + mesa). Pulsa abajo para capturar.`
+      );
       playTone('water');
     } else {
       setSelectedTableCards([]);
+      setEscobaMessage(
+        `No hay combinaciones de 15 con el ${RANK_NAMES[card.rank] || card.rank}. Pulsa abajo para descartarla en la mesa.`
+      );
     }
   };
 
@@ -528,28 +539,21 @@ export const MinigamesSection: React.FC = () => {
   // =========================================================================
 
   const toggleSelectTableCard = (card: SpanishCard) => {
-    // No se puede elegir una carta de la mesa
-    // sin haber elegido primero una carta de la mano.
-    if (!selectedHandCard) return;
+    if (!selectedHandCard) {
+      setEscobaMessage('Primero pulsa una carta de tu mano para buscar o sumar 15.');
+      return;
+    }
+    if (escobaGameOver) return;
+    if (escobaMode === 'solo' && escobaTurn !== 'p1') return;
 
-    // No permitir seleccionar durante otro turno
-    // ni cuando la partida terminó.
-    if (escobaTurn !== 'p1' || escobaGameOver) return;
-
-    const alreadySelected = selectedTableCards.some(
-      (c) => c.id === card.id
-    );
+    const alreadySelected = selectedTableCards.some((c) => c.id === card.id);
 
     // Si ya estaba seleccionada, quitarla.
     if (alreadySelected) {
-      setSelectedTableCards((prev) =>
-        prev.filter((c) => c.id !== card.id)
-      );
-
-      setEscobaMessage(
-        'Carta quitada de la combinación.'
-      );
-
+      const remaining = selectedTableCards.filter((c) => c.id !== card.id);
+      setSelectedTableCards(remaining);
+      const newTotal = selectedHandCard.value + remaining.reduce((acc, c) => acc + c.value, 0);
+      setEscobaMessage(`Carta desmarcada. Suma actual: ${newTotal} / 15`);
       return;
     }
 
@@ -568,24 +572,23 @@ export const MinigamesSection: React.FC = () => {
     // Nunca permitir pasar de 15.
     if (newTotal > 15) {
       setEscobaMessage(
-        `⚠️ No puedes superar 15. Esa carta haría un total de ${newTotal}.`
+        `⚠️ No puedes superar 15. Esa carta haría un total de ${newTotal}. Desmarca alguna carta antes de añadir esta.`
       );
-
       playTone('digital_pulse');
-
       return;
     }
 
     // Agregar carta a la selección.
-    setSelectedTableCards((prev) => [
-      ...prev,
-      card,
-    ]);
+    const nextSelection = [...selectedTableCards, card];
+    setSelectedTableCards(nextSelection);
 
     // Mensaje según la nueva suma.
     if (newTotal === 15) {
+      const isSweep = nextSelection.length === escobaTable.length;
       setEscobaMessage(
-        '✅ ¡La combinación suma exactamente 15!'
+        isSweep
+          ? '🧹 ¡¡ESCOBA COMPLETA!! Limpiarás la mesa (+1 Punto).'
+          : '✅ ¡Suma exactamente 15! Pulsa el botón verde para capturar.'
       );
       playTone('water');
     } else {
@@ -774,6 +777,7 @@ export const MinigamesSection: React.FC = () => {
 
     setSelectedHandCard(null);
     setSelectedTableCards([]);
+    setAvailableCombos([]);
 
     // -----------------------------------------------------------------------
     // REPARTIR 3 CARTAS A CADA UNO
@@ -942,16 +946,15 @@ export const MinigamesSection: React.FC = () => {
   };
 
   // =========================================================================
-  // JUGADA DEL JUGADOR 1
+  // JUGADA DE ESCOBA (TURNO ACTIVO P1 O P2)
   // =========================================================================
 
   const handlePlayEscobaCard = () => {
     if (!selectedHandCard) return;
-    if (escobaTurn !== 'p1') return;
     if (escobaGameOver) return;
 
     executeEscobaMove(
-      'p1',
+      escobaTurn,
       selectedHandCard,
       selectedTableCards,
       escobaTable,
@@ -2117,23 +2120,17 @@ export const MinigamesSection: React.FC = () => {
               </span>
 
               <div className="flex gap-2">
-
-                {escobaHandP2.map(
-                  (card) => (
-                    <div
-                      key={card.id}
-                    >
-                      {escobaMode ===
-                        'couple' &&
-                      escobaTurn === 'p2' ? (
+                {escobaHandP2.map((card) => {
+                  const isTurnP2 = escobaMode === 'couple' && escobaTurn === 'p2';
+                  const isSelected = selectedHandCard?.id === card.id;
+                  return (
+                    <div key={card.id}>
+                      {isTurnP2 ? (
                         <SpanishCardView
                           card={card}
-                          size="sm"
-                          onClick={() =>
-                            handlePlayEscobaCardP2(
-                              card
-                            )
-                          }
+                          size="md"
+                          isSelected={isSelected}
+                          onClick={() => handleSelectHandCard(card)}
                         />
                       ) : (
                         <SpanishCardView
@@ -2143,25 +2140,16 @@ export const MinigamesSection: React.FC = () => {
                         />
                       )}
                     </div>
-                  )
-                )}
-
+                  );
+                })}
               </div>
             </div>
           </div>
 
           {/* MESA */}
-
-          <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-b from-emerald-950/60 via-black/75 to-emerald-950/60 border-2 border-emerald-500/40 text-center space-y-3.5 shadow-inner">
-
+          <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-b from-emerald-950/70 via-black/80 to-emerald-950/70 border-2 border-emerald-500/50 text-center space-y-3.5 shadow-2xl">
             <div className="flex items-center justify-between text-xs font-black text-emerald-300 uppercase">
-
-              <span>
-                Cartas en la Mesa (
-                {escobaTable.length}
-                ):
-              </span>
-
+              <span>Cartas en la Mesa ({escobaTable.length}):</span>
               <span>
                 Suma:{' '}
                 <strong
@@ -2174,54 +2162,74 @@ export const MinigamesSection: React.FC = () => {
                   {currentEscobaSum} / 15
                 </strong>
               </span>
-
             </div>
 
             {escobaTable.length === 0 ? (
-              <div className="py-8 text-white/60 text-xs italic bg-black/30 rounded-2xl">
+              <div className="py-8 text-white/60 text-xs italic bg-black/30 rounded-2xl border border-white/5">
                 🧹 ¡La mesa está limpia! Tira una carta de tu mano para abrir la mesa.
               </div>
             ) : (
               <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 py-2">
-
-                {escobaTable.map(
-                  (card) => {
-
-                    const isSelected =
-                      selectedTableCards.some(
-                        (sc) =>
-                          sc.id === card.id
-                      );
-
-                    return (
-                      <SpanishCardView
-                        key={card.id}
-                        card={card}
-                        isSelected={
-                          isSelected
-                        }
-                        size="md"
-                        onClick={() =>
-                          toggleSelectTableCard(
-                            card
-                          )
-                        }
-                      />
-                    );
-                  }
-                )}
-
+                {escobaTable.map((card) => {
+                  const isSelected = selectedTableCards.some((sc) => sc.id === card.id);
+                  return (
+                    <SpanishCardView
+                      key={card.id}
+                      card={card}
+                      isSelected={isSelected}
+                      size="md"
+                      onClick={() => toggleSelectTableCard(card)}
+                    />
+                  );
+                })}
               </div>
             )}
 
+            {/* Opciones de combinaciones posibles que suman 15 */}
+            {availableCombos.length > 1 && (
+              <div className="flex flex-wrap items-center justify-center gap-2 p-2.5 rounded-2xl bg-black/60 border border-amber-400/30 mt-2">
+                <span className="text-[11px] font-black text-amber-300 flex items-center gap-1">
+                  💡 {availableCombos.length} combinaciones de 15:
+                </span>
+                {availableCombos.map((combo, idx) => {
+                  const isSelectedCombo =
+                    combo.length === selectedTableCards.length &&
+                    combo.every((c) => selectedTableCards.some((sc) => sc.id === c.id));
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setSelectedTableCards(combo);
+                        playTone('water');
+                      }}
+                      className={`px-2.5 py-1 rounded-xl text-xs font-bold cursor-pointer transition-all ${
+                        isSelectedCombo
+                          ? 'bg-amber-400 text-slate-950 font-black shadow-md ring-1 ring-amber-300'
+                          : 'bg-white/10 hover:bg-white/20 text-white'
+                      }`}
+                    >
+                      Opción {idx + 1} ({combo.length} cartas)
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTableCards([]);
+                    setEscobaMessage('Mesa desmarcada. Puedes pulsar el botón abajo para descartar a la mesa.');
+                  }}
+                  className="px-2 py-1 rounded-xl bg-white/5 hover:bg-white/15 text-white/70 text-[11px] cursor-pointer"
+                >
+                  Desmarcar mesa
+                </button>
+              </div>
+            )}
           </div>
 
           {/* MANO P1 */}
-
           <div className="p-5 rounded-3xl bg-black/50 border border-white/15 space-y-3.5 shadow-xl">
-
             <div className="flex items-center justify-between">
-
               <span className="text-xs font-black uppercase text-white flex items-center gap-1.5">
                 <span>Tu Mano ({currentDisplayMe.name || 'Yo'})</span>
                 {escobaTurn === 'p1' && (
@@ -2232,119 +2240,74 @@ export const MinigamesSection: React.FC = () => {
               </span>
 
               <span className="text-xs text-white/70">
-                Mazo restante:{' '}
-                {escobaDeck.length}
+                Mazo restante: {escobaDeck.length}
               </span>
-
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-3.5 sm:gap-4">
-
-              {escobaHandP1.map(
-                (card) => {
-
-                  const isSelected =
-                    selectedHandCard?.id ===
-                    card.id;
-
-                  return (
-                    <SpanishCardView
-                      key={card.id}
-                      card={card}
-                      isSelected={
-                        isSelected
-                      }
-                      size="lg"
-                      disabled={
-                        escobaTurn !==
-                          'p1' ||
-                        escobaGameOver
-                      }
-                      onClick={() =>
-                        handleSelectHandCard(
-                          card
-                        )
-                      }
-                    />
-                  );
-                }
-              )}
-
+              {escobaHandP1.map((card) => {
+                const isSelected = selectedHandCard?.id === card.id;
+                return (
+                  <SpanishCardView
+                    key={card.id}
+                    card={card}
+                    isSelected={isSelected}
+                    size="lg"
+                    disabled={escobaTurn !== 'p1' || escobaGameOver}
+                    onClick={() => handleSelectHandCard(card)}
+                  />
+                );
+              })}
             </div>
-
           </div>
 
-          {/* MENSAJE */}
-
-          <div className="p-3.5 rounded-2xl bg-white/10 border border-white/15 text-center text-xs font-bold text-white flex items-center justify-center gap-2">
+          {/* MENSAJE DE ESTADO DE LA PARTIDA */}
+          <div className="p-3.5 rounded-2xl bg-white/10 border border-white/15 text-center text-xs font-bold text-white flex items-center justify-center gap-2 shadow-inner">
             <Sparkles className="w-4 h-4 text-amber-300" />
-            <span>
-              {escobaMessage}
-            </span>
+            <span>{escobaMessage}</span>
           </div>
 
-          {/* BOTÓN JUGAR */}
-
+          {/* BOTÓN JUGAR DINÁMICO */}
           {selectedHandCard &&
-            escobaTurn === 'p1' &&
-            !escobaGameOver && (
+            !escobaGameOver &&
+            (escobaMode === 'couple' || escobaTurn === 'p1') && (
               <motion.button
                 type="button"
-                initial={{
-                  opacity: 0,
-                  y: 10,
-                }}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                }}
-                onClick={
-                  handlePlayEscobaCard
-                }
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                onClick={handlePlayEscobaCard}
                 className={`w-full py-4 rounded-3xl font-black text-sm flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-98 transition-all ${
-                  currentEscobaSum ===
-                    15 &&
-                  selectedTableCards.length >
-                    0
+                  currentEscobaSum === 15 && selectedTableCards.length > 0
                     ? 'bg-gradient-to-r from-lime-500 to-emerald-600 text-slate-950 shadow-lime-500/40 ring-2 ring-lime-300'
-                    : 'bg-white/20 text-white hover:bg-white/30'
+                    : selectedTableCards.length === 0
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-slate-950 shadow-amber-500/30'
+                    : 'bg-white/20 text-white/70'
                 }`}
               >
-
-                {currentEscobaSum ===
-                  15 &&
-                selectedTableCards.length >
-                  0 ? (
+                {currentEscobaSum === 15 && selectedTableCards.length > 0 ? (
                   <>
                     <span>✅</span>
-
                     <span>
-                      {selectedTableCards.length ===
-                      escobaTable.length
-                        ? '🧹 ¡¡HACER ESCOBA!! (+1 Pto)'
-                        : `¡Suma 15! Capturar ${
-                            selectedTableCards.length +
-                            1
-                          } Cartas`}
+                      {selectedTableCards.length === escobaTable.length
+                        ? '🧹 ¡¡HACER ESCOBA!! (+1 Pto Limpio)'
+                        : `¡Suma 15! Capturar ${selectedTableCards.length + 1} Cartas`}
+                    </span>
+                  </>
+                ) : selectedTableCards.length === 0 ? (
+                  <>
+                    <span>🃏</span>
+                    <span>
+                      Descartar {RANK_NAMES[selectedHandCard.rank] || selectedHandCard.rank} a la Mesa
                     </span>
                   </>
                 ) : (
                   <>
-                    <span>🃏</span>
-
+                    <span>⚠️</span>
                     <span>
-                      Descartar{' '}
-                      {
-                        RANK_NAMES[
-                          selectedHandCard
-                            .rank
-                        ]
-                      }{' '}
-                      a la Mesa
+                      Suma actual: {currentEscobaSum}/15 (Debe sumar 15 para capturar o desmarca la mesa)
                     </span>
                   </>
                 )}
-
               </motion.button>
             )}
 

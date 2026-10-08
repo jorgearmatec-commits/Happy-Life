@@ -17,10 +17,11 @@ import { BodyDoublingModal } from './components/BodyDoublingModal';
 import { SettingsModal } from './components/SettingsModal';
 import { SubmenuNav } from './components/SubmenuNav';
 import { GeminiQuickModal } from './components/GeminiQuickModal';
+import { GoogleSyncModal } from './components/GoogleSyncModal';
 import { Lock, Heart, Sparkles, X, Brain, Headphones, LogOut, Moon, Sun } from 'lucide-react';
 
 const MainAppContent: React.FC = () => {
-  const { settings, updateSettings, setActiveMenu, me } = useApp();
+  const { settings, updateSettings, setActiveMenu, me, isGoogleModalOpen, closeGoogleModal } = useApp();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMiniChatOpen, setIsMiniChatOpen] = useState(false);
   const [isBodyDoublingOpen, setIsBodyDoublingOpen] = useState(false);
@@ -535,6 +536,12 @@ const MainAppContent: React.FC = () => {
       <GeminiQuickModal
         isOpen={isGeminiOpen}
         onClose={() => setIsGeminiOpen(false)}
+      />
+
+      {/* Modal de Sincronización Segura con Cuenta Google (App 1 y App 2) */}
+      <GoogleSyncModal
+        isOpen={isGoogleModalOpen}
+        onClose={closeGoogleModal}
       />
 
       {/* MODAL DE DESPEDIDA CON CONTEO REGRESIVO AL SALIR DE LA APP */}

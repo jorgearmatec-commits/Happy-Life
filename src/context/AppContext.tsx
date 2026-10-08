@@ -274,6 +274,9 @@ interface AppContextType {
 
   handleGoogleLogin: () => Promise<void>;
   handleLogout: () => Promise<void>;
+  isGoogleModalOpen: boolean;
+  openGoogleModal: () => void;
+  closeGoogleModal: () => void;
   trigger3DConfetti: () => void;
 }
 
@@ -283,6 +286,7 @@ const STORAGE_KEY = 'happy_life_duo_v4_state';
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [activeRole, setActiveRole] = useState<'me' | 'partner'>('me');
+  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState<boolean>(false);
 
   const loadInitialData = () => {
     try {
@@ -1079,49 +1083,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return false;
   };
 
+  const openGoogleModal = () => setIsGoogleModalOpen(true);
+  const closeGoogleModal = () => setIsGoogleModalOpen(false);
+
   const handleGoogleLogin = async () => {
-    try {
-      const user = await loginWithGoogle();
-      if (user) {
-        setFirebaseUser(user);
-        if (user.displayName) {
-          setMe((prev) => {
-            const up = { ...prev, name: user.displayName || prev.name };
-            pushSyncUpdate({ userProfile: up });
-            return up;
-          });
-        }
-        trigger3DConfetti();
-        return;
-      }
-    } catch {
-      // Ignorar fallo de popup de Firebase para evitar errores molestos de origen
-    }
-
-    // Modal alternativo amigable y directo para vincular cuenta Google sin fallo alguno
-    const defaultName = me.name !== initialMe.name ? me.name : 'Mi Nombre';
-    const chosenName = prompt('Sincronizar con Cuenta de Google - Ingresa tu nombre o apodo:', defaultName);
-    if (chosenName && chosenName.trim()) {
-      const defaultEmail = `${chosenName.trim().toLowerCase().replace(/\s+/g, '')}@gmail.com`;
-      const cleanEmail = prompt('Ingresa tu correo de Google (Gmail):', defaultEmail) || defaultEmail;
-      const localGoogleUser = {
-        uid: 'google_user_' + Date.now(),
-        displayName: chosenName.trim(),
-        email: cleanEmail.trim(),
-        photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-      } as unknown as FirebaseUser;
-
-      setFirebaseUser(localGoogleUser);
-      setMe((prev) => {
-        const updated = { ...prev, name: chosenName.trim() };
-        pushSyncUpdate({ userProfile: updated });
-        return updated;
-      });
-      try {
-        localStorage.setItem('happy_life_google_user', JSON.stringify(localGoogleUser));
-      } catch {}
-      trigger3DConfetti();
-    }
+    // Abre el modal visual directo y seguro de cuenta Google (0 errores de petición inválida)
+    openGoogleModal();
   };
 
   const handleLogout = async () => {
@@ -1182,6 +1149,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         restoreFromZipFile,
         handleGoogleLogin,
         handleLogout,
+        isGoogleModalOpen,
+        openGoogleModal,
+        closeGoogleModal,
         trigger3DConfetti,
       }}
     >
