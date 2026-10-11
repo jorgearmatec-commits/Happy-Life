@@ -16,7 +16,7 @@ import { MiniChatModal } from './components/MiniChatModal';
 import { BodyDoublingModal } from './components/BodyDoublingModal';
 import { SettingsModal } from './components/SettingsModal';
 import { SubmenuNav } from './components/SubmenuNav';
-import { GeminiQuickModal } from './components/GeminiQuickModal';
+import { SimpleNavigator } from './components/SimpleNavigator';
 import { GoogleSyncModal } from './components/GoogleSyncModal';
 import { Lock, Heart, Sparkles, X, Brain, Headphones, LogOut, Moon, Sun } from 'lucide-react';
 
@@ -25,7 +25,6 @@ const MainAppContent: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMiniChatOpen, setIsMiniChatOpen] = useState(false);
   const [isBodyDoublingOpen, setIsBodyDoublingOpen] = useState(false);
-  const [isGeminiOpen, setIsGeminiOpen] = useState(false);
 
   // Exit dialog & App closed states
   const [isExitOpen, setIsExitOpen] = useState(false);
@@ -48,11 +47,11 @@ const MainAppContent: React.FC = () => {
   // Escalar el tamaño de fuente visiblemente en toda la aplicación
   useEffect(() => {
     const fontScaleMap: Record<string, string> = {
-      small: '13.5px',
+      small: '13px',
       normal: '16px',
-      medium: '18.5px',
-      large: '21.5px',
-      extralarge: '25px',
+      medium: '16px',
+      large: '21px',
+      extralarge: '21px',
     };
     const rootSize = fontScaleMap[settings.fontSize] || '16px';
     document.documentElement.style.fontSize = rootSize;
@@ -215,13 +214,9 @@ const MainAppContent: React.FC = () => {
   const fontSizeClass =
     settings.fontSize === 'small'
       ? 'text-xs'
-      : settings.fontSize === 'normal'
-      ? 'text-[13px]'
-      : settings.fontSize === 'medium'
-      ? 'text-sm'
-      : settings.fontSize === 'large'
-      ? 'text-base'
-      : 'text-lg'; // extralarge
+      : settings.fontSize === 'large' || settings.fontSize === 'extralarge'
+      ? 'text-base sm:text-lg'
+      : 'text-sm';
 
   // Render ONLY the active single menu (Estático salvo selección en menú superior)
   const renderCurrentSection = () => {
@@ -456,7 +451,6 @@ const MainAppContent: React.FC = () => {
       <Header
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenExit={() => setIsExitOpen(true)}
-        onOpenGemini={() => setIsGeminiOpen(true)}
       />
 
       {/* Contenedor Principal (SIN DESLIZAMIENTO TÁCTIL LATERAL QUE CAMBIE LOS MENÚS) */}
@@ -512,6 +506,9 @@ const MainAppContent: React.FC = () => {
         </motion.button>
       </div>
 
+      {/* Barra de Navegación Rápida "Simple" Flotante para Android */}
+      <SimpleNavigator />
+
       {/* Modales Controlados (Ocultan sus botones de borde individuales para no chocar) */}
       <BodyDoublingModal
         isOpen={isBodyDoublingOpen}
@@ -532,13 +529,7 @@ const MainAppContent: React.FC = () => {
         onOpenExit={() => setIsExitOpen(true)}
       />
 
-      {/* Mini Ventana Rápida Pregúntale a Gemini */}
-      <GeminiQuickModal
-        isOpen={isGeminiOpen}
-        onClose={() => setIsGeminiOpen(false)}
-      />
-
-      {/* Modal de Sincronización Segura con Cuenta Google (App 1 y App 2) */}
+      {/* Modal de Sincronización Segura con Cuenta Google */}
       <GoogleSyncModal
         isOpen={isGoogleModalOpen}
         onClose={closeGoogleModal}

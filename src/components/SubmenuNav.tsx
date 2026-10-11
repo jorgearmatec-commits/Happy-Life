@@ -98,7 +98,10 @@ export const SubmenuNav: React.FC = () => {
               type="button"
               whileHover={{ scale: 1.04, y: -2 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => setActiveMenu(secId)}
+              onClick={() => {
+                setActiveMenu(secId);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
               title={meta.label}
               className={`p-2 sm:p-2.5 rounded-2xl flex flex-col items-center justify-center text-center transition-all cursor-pointer relative shadow-sm min-h-[64px] sm:min-h-[72px] border ${
                 isSelected

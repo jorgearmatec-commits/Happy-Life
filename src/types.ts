@@ -221,13 +221,27 @@ export interface LocalAudioTrack {
   size: number;
 }
 
+export type ExpenseCurrency = 'CLP' | 'ARS' | 'USD';
+
+export interface ExpenseItem {
+  id: string;
+  creator: 'me' | 'partner';
+  creatorName: string;
+  date: string; // YYYY-MM-DD
+  category: string; // e.g. "Comida de perro", "Feria", "Supermercado", etc.
+  description: string;
+  amount: number;
+  currency: ExpenseCurrency;
+  createdAt: string;
+}
+
 export interface AppSettings {
   backgroundTheme: string;
   customBgImage?: string;
   customBgFit?: 'contain' | 'cover' | 'fill';
   textColor: string;
   subtextColor: string;
-  fontSize: 'small' | 'normal' | 'medium' | 'large' | 'extralarge';
+  fontSize: 'small' | 'medium' | 'large' | 'normal' | 'extralarge';
   lowStimulusMode: boolean;
   highPerformanceMode?: boolean; // Android optimization to disable heavy blurs/backdrop filters
   lowEndDeviceMode?: boolean; // Extreme low-RAM optimization: Disables 3D, caps at 30fps, removes animations

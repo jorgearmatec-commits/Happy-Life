@@ -37,8 +37,8 @@ export const LifeJournalSection: React.FC = () => {
   const [photos, setPhotos] = useState<string[]>([]);
   const [isImportant, setIsImportant] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [isOrganizingWithGemini, setIsOrganizingWithGemini] = useState(false);
-  const [geminiSummary, setGeminiSummary] = useState<string | null>(null);
+  const [isOrganizing, setIsOrganizing] = useState(false);
+  const [organizeSummary, setOrganizeSummary] = useState<string | null>(null);
 
   // Edit modal
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
@@ -81,8 +81,8 @@ export const LifeJournalSection: React.FC = () => {
     }
   };
 
-  const handleOrganizeWithGemini = async () => {
-    setIsOrganizingWithGemini(true);
+  const handleOrganizeMoments = () => {
+    setIsOrganizing(true);
     try {
       const updated = journal.map((entry) => {
         let period: 'morning' | 'afternoon' | 'night' | 'achievements' = 'morning';
@@ -105,13 +105,13 @@ export const LifeJournalSection: React.FC = () => {
       });
 
       setJournalEntries(updated);
-      setGeminiSummary(
-        `✨ Gemini organizó exitosamente las ${journal.length} entradas en: Mañana 🌅, Tarde ☀️, Noche 🌙 y Logros 🏆.`
+      setOrganizeSummary(
+        `✓ Entradas organizadas por momentos del día: Mañana 🌅, Tarde ☀️, Noche 🌙 y Logros 🏆.`
       );
     } catch {
-      setGeminiSummary('Organización cronológica completada.');
+      setOrganizeSummary('Organización cronológica completada.');
     } finally {
-      setIsOrganizingWithGemini(false);
+      setIsOrganizing(false);
     }
   };
 
@@ -171,25 +171,26 @@ export const LifeJournalSection: React.FC = () => {
             <span className="hidden sm:inline">Calendario Diario</span>
           </button>
 
-          {/* Botón: ✨ Organizar con Gemini */}
+          {/* Botón: Organizar por Horarios */}
           <button
             type="button"
-            onClick={handleOrganizeWithGemini}
-            disabled={isOrganizingWithGemini || journal.length === 0}
+            onClick={handleOrganizeMoments}
+            disabled={isOrganizing || journal.length === 0}
             className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-purple-900/30 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+            title="Organizar entradas por momentos del día"
           >
-            <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
-            <span className="hidden sm:inline">{isOrganizingWithGemini ? 'Organizando...' : '✨ Organizar'}</span>
+            <Clock className="w-4 h-4 text-purple-200" />
+            <span className="hidden sm:inline">{isOrganizing ? 'Organizando...' : 'Ordenar Horarios'}</span>
           </button>
         </div>
       </div>
 
-      {geminiSummary && (
+      {organizeSummary && (
         <div className="p-3.5 rounded-2xl bg-purple-950/40 border border-purple-400/30 text-purple-200 text-xs flex items-center justify-between">
-          <span>{geminiSummary}</span>
+          <span>{organizeSummary}</span>
           <button
             type="button"
-            onClick={() => setGeminiSummary(null)}
+            onClick={() => setOrganizeSummary(null)}
             className="text-white/60 hover:text-white ml-2 text-xs font-bold"
           >
             ✕

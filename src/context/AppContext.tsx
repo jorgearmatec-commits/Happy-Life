@@ -15,7 +15,9 @@ import {
   SoundTone,
   ReminderCategory,
   ChecklistItem,
-  PlayingTrackInfo
+  PlayingTrackInfo,
+  ExpenseItem,
+  ExpenseCurrency,
 } from '../types';
 import { playTone } from '../components/AudioSynthesizer';
 import { auth, loginWithGoogle, logoutUser, onAuthStateChanged, FirebaseUser } from '../firebase';
@@ -211,6 +213,7 @@ const initialMessages: ChatMessage[] = [
 
 interface AppContextType {
   firebaseUser: FirebaseUser | null;
+  setFirebaseUser: (user: FirebaseUser | null) => void;
   me: UserProfile;
   partner: UserProfile;
   reminders: ReminderNote[];
@@ -262,6 +265,12 @@ interface AppContextType {
   addRecording: (recording: Omit<AudioRecording, 'id' | 'createdAt'>) => void;
   deleteRecording: (id: string) => void;
   
+  // Expenses Calculator (Calculadora de gastos de la pareja)
+  expenses: ExpenseItem[];
+  addExpense: (expense: Omit<ExpenseItem, 'id' | 'createdAt' | 'creator' | 'creatorName'>) => void;
+  updateExpense: (id: string, updated: Partial<ExpenseItem>) => boolean;
+  deleteExpense: (id: string) => boolean;
+
   // Settings & Reorder
   updateSettings: (newSettings: Partial<AppSettings>) => void;
   reorderSections: (newOrder: string[]) => void;
@@ -314,6 +323,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const savedData = loadInitialData();
 
+  const initialExpenses: ExpenseItem[] = [
+    {
+      id: 'exp_1',
+      creator: 'me',
+      creatorName: 'Lucas',
+      date: new Date().toISOString().slice(0, 10),
+      category: 'Comida de perro',
+      description: 'Saco de comida de perro 15kg',
+      amount: 25000,
+      currency: 'CLP',
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'exp_2',
+      creator: 'partner',
+      creatorName: 'Sofía',
+      date: new Date().toISOString().slice(0, 10),
+      category: 'Feria',
+      description: 'Verduras, frutas y feria de la semana',
+      amount: 45000,
+      currency: 'CLP',
+      createdAt: new Date().toISOString(),
+    },
+  ];
+
   const [me, setMe] = useState<UserProfile>(savedData?.me || initialMe);
   const [partner, setPartner] = useState<UserProfile>(savedData?.partner || initialPartner);
   const [reminders, setReminders] = useState<ReminderNote[]>(savedData?.reminders || initialReminders);
@@ -321,6 +355,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [journal, setJournal] = useState<JournalEntry[]>(savedData?.journal || initialJournal);
   const [messages, setMessages] = useState<ChatMessage[]>(savedData?.messages || initialMessages);
   const [recordings, setRecordings] = useState<AudioRecording[]>(savedData?.recordings || []);
+  const [expenses, setExpenses] = useState<ExpenseItem[]>(savedData?.expenses || initialExpenses);
   const [settings, setSettings] = useState<AppSettings>(savedData?.settings || defaultSettings);
 
   useEffect(() => {
@@ -333,13 +368,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         journal,
         messages,
         recordings,
+        expenses,
         settings,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     } catch (err) {
       console.warn('LocalStorage save notice:', err);
     }
-  }, [me, partner, reminders, alarms, journal, messages, recordings, settings]);
+  }, [me, partner, reminders, alarms, journal, messages, recordings, expenses, settings]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (usr) => {
@@ -953,6 +989,43 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setRecordings((prev) => prev.filter((r) => r.id !== id));
   };
 
+  const addExpense = (exp: Omit<ExpenseItem, 'id' | 'createdAt' | 'creator' | 'creatorName'>) => {
+    const currentName = activeRole === 'me' ? me.name : partner.name;
+    const newExp: ExpenseItem = {
+      ...exp,
+      id: 'exp_' + Date.now(),
+      creator: activeRole,
+      creatorName: currentName || (activeRole === 'me' ? 'Yo' : 'Mi Pareja'),
+      createdAt: new Date().toISOString(),
+    };
+    setExpenses((prev) => [newExp, ...prev]);
+    playTone('water');
+  };
+
+  const updateExpense = (id: string, updated: Partial<ExpenseItem>): boolean => {
+    const existing = expenses.find((e) => e.id === id);
+    if (!existing) return false;
+    // REGLA: Cada usuario puede editar sus propios gastos pero no los de la pareja
+    if (existing.creator !== activeRole) {
+      return false;
+    }
+    setExpenses((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, ...updated } : e))
+    );
+    return true;
+  };
+
+  const deleteExpense = (id: string): boolean => {
+    const existing = expenses.find((e) => e.id === id);
+    if (!existing) return false;
+    // REGLA: Cada usuario solo puede borrar sus propios gastos
+    if (existing.creator !== activeRole) {
+      return false;
+    }
+    setExpenses((prev) => prev.filter((e) => e.id !== id));
+    return true;
+  };
+
   const updateSettings = (newSettings: Partial<AppSettings>) => {
     setSettings((prev) => ({ ...prev, ...newSettings }));
   };
@@ -1073,6 +1146,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (data.journal) setJournal(data.journal);
         if (data.messages) setMessages(data.messages);
         if (data.recordings) setRecordings(data.recordings);
+        if (data.expenses) setExpenses(data.expenses);
         if (data.settings) setSettings(data.settings);
         trigger3DConfetti();
         return true;
@@ -1105,6 +1179,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     <AppContext.Provider
       value={{
         firebaseUser,
+        setFirebaseUser,
         me,
         partner,
         reminders,
@@ -1112,6 +1187,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         journal,
         messages,
         recordings,
+        expenses,
         settings,
         activeRole,
         setActiveMenu,
@@ -1136,6 +1212,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         updateJournalEntry,
         deleteJournalEntry,
         setJournalEntries,
+        addExpense,
+        updateExpense,
+        deleteExpense,
         sendMessage,
         addRecentEmoji,
         exportChatBackup,

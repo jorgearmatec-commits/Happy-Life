@@ -124,6 +124,35 @@ app.get('/api/sync/pull', (req, res) => {
   });
 });
 
+// Almacenamiento en memoria para copias de seguridad de usuarios Google
+const userBackups: Map<string, any> = new Map();
+
+app.post('/api/sync/backup', (req, res) => {
+  const { email, data } = req.body;
+  if (!email || !data) {
+    return res.status(400).json({ error: 'Faltan parámetros de respaldo' });
+  }
+  const cleanEmail = String(email).trim().toLowerCase();
+  userBackups.set(cleanEmail, {
+    data,
+    savedAt: Date.now(),
+  });
+  return res.json({ success: true, savedAt: Date.now() });
+});
+
+app.get('/api/sync/backup', (req, res) => {
+  const email = (req.query.email as string || '').trim().toLowerCase();
+  if (!email) {
+    return res.status(400).json({ error: 'Email requerido' });
+  }
+  const backup = userBackups.get(email);
+  return res.json({
+    success: true,
+    backup: backup ? backup.data : null,
+    savedAt: backup ? backup.savedAt : null,
+  });
+});
+
 // ---------------------------------------------------------------------------
 // 1. ENDPOINT GEMINI AI (SERVER-SIDE SEGÚN SKILL GEMINI-API)
 // ---------------------------------------------------------------------------

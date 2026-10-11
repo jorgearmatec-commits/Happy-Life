@@ -16,12 +16,14 @@ import {
   CalendarCheck,
   Check,
   X,
-  Edit3
+  Edit3,
+  DollarSign
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ReminderNote, ReminderCategory, NoteColor, SoundTone, ChecklistItem } from '../types';
 import { playTone } from './AudioSynthesizer';
 import { ModalPortal } from './ModalPortal';
+import { ExpenseCalculator } from './ExpenseCalculator';
 
 const EXACT_CATEGORIES: { name: ReminderCategory; icon: string }[] = [
   { name: 'Despertarse', icon: '⏰' },
@@ -76,6 +78,7 @@ export const RemindersSection: React.FC = () => {
   } = useApp();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeSubTab, setActiveSubTab] = useState<'notes' | 'expenses'>('notes');
   const [noteType, setNoteType] = useState<'normal' | 'checklist'>('normal');
 
   // Form states
@@ -235,31 +238,64 @@ export const RemindersSection: React.FC = () => {
 
   return (
     <section className="w-full space-y-5">
-      {/* Header Bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-2xl bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-amber-300 shadow-md">
-            <Bell className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="text-xl font-black text-white font-heading tracking-tight">
-              Recordatorios y Notas
-            </h3>
-            <p className="text-xs text-white/60">
-              Color Notes y Listas de Tareas tipo Pergamino
-            </p>
-          </div>
-        </div>
+      {/* Selector de Pestañas: Notas y Listas VS Calculadora de Gastos */}
+      <div className="grid grid-cols-2 p-1.5 rounded-2xl bg-black/40 border border-white/10 text-xs font-bold shadow-md">
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('notes')}
+          className={`py-2.5 px-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            activeSubTab === 'notes'
+              ? 'bg-amber-500 text-black shadow-md font-black ring-1 ring-amber-300'
+              : 'text-white/70 hover:text-white'
+          }`}
+        >
+          <Bell className="w-4 h-4" />
+          <span>Notas y Listas 📝</span>
+        </button>
 
         <button
           type="button"
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-2xl btn-3d-rose text-white text-xs font-bold cursor-pointer"
+          onClick={() => setActiveSubTab('expenses')}
+          className={`py-2.5 px-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            activeSubTab === 'expenses'
+              ? 'bg-gradient-to-r from-amber-500 via-rose-600 to-red-600 text-white shadow-md font-black ring-1 ring-rose-300'
+              : 'text-white/70 hover:text-white'
+          }`}
         >
-          <Plus className="w-4 h-4" />
-          <span>Nueva Nota</span>
+          <DollarSign className="w-4 h-4 text-amber-200" />
+          <span>Calculadora de Gastos 💰</span>
         </button>
       </div>
+
+      {activeSubTab === 'expenses' ? (
+        <ExpenseCalculator />
+      ) : (
+        <>
+          {/* Header Bar */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-2xl bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-amber-300 shadow-md">
+                <Bell className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white font-heading tracking-tight">
+                  Recordatorios y Notas
+                </h3>
+                <p className="text-xs text-white/60">
+                  Color Notes y Listas de Tareas tipo Pergamino
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl btn-3d-rose text-white text-xs font-bold cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nueva Nota</span>
+            </button>
+          </div>
 
       {/* Grid of Notes */}
       {reminders.length === 0 ? (
@@ -446,6 +482,8 @@ export const RemindersSection: React.FC = () => {
           </AnimatePresence>
         </div>
       )}
+    </>
+  )}
 
       {/* MODAL: NUEVA NOTA O CHECK-LIST */}
       <ModalPortal

@@ -27,9 +27,11 @@ import {
   Gauge,
   RefreshCw,
   FileArchive,
+  User,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ModalPortal } from './ModalPortal';
+import { playTone } from './AudioSynthesizer';
 
 export const BACKGROUND_PRESETS = [
   { name: 'Violeta Místico', value: 'bg-[#4c1d95]', color: '#5b21b6' },
@@ -102,7 +104,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     partner,
     activeRole,
     toggleRole,
+    updateUserName,
   } = useApp();
+
+  const [myNameInput, setMyNameInput] = useState(me.name);
+  const [partnerNameInput, setPartnerNameInput] = useState(partner.name);
 
   const [activeTab, setActiveTab] = useState<'appearance' | 'comfort' | 'performance' | 'backup'>('appearance');
   const [restoreStatus, setRestoreStatus] = useState<string | null>(null);
@@ -623,35 +629,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
-              {/* Tamaño de Tipografía (Pequeña, Normal, Media, Grande, Extra Grande) */}
+              {/* Tamaño de Tipografía en 3 Tamaños: Pequeño, Mediano, Grande */}
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-white/90 uppercase tracking-wider">
-                  Tamaño de Tipografía General:
+                  Tamaño del Texto (3 Niveles Visibles):
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {(
                     [
-                      { id: 'small', label: 'Pequeña 🐜' },
-                      { id: 'normal', label: 'Normal 📱' },
-                      { id: 'medium', label: 'Media 📝' },
-                      { id: 'large', label: 'Grande 👓' },
-                      { id: 'extralarge', label: 'Extra 🔍' },
+                      { id: 'small', label: 'Pequeño 🐜', desc: 'Compacto' },
+                      { id: 'medium', label: 'Mediano 📱', desc: 'Estándar' },
+                      { id: 'large', label: 'Grande 👓', desc: 'Accesibilidad' },
                     ] as const
-                  ).map((sz) => (
-                    <button
-                      key={sz.id}
-                      type="button"
-                      onClick={() => updateSettings({ fontSize: sz.id })}
-                      className={`py-2 px-1 rounded-xl border text-xs font-bold transition-all cursor-pointer text-center ${
-                        settings.fontSize === sz.id
-                          ? 'bg-white/20 border-white shadow-sm font-black ring-1 ring-white/50 text-white'
-                          : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'
-                      }`}
-                    >
-                      {sz.label}
-                    </button>
-                  ))}
+                  ).map((sz) => {
+                    const isSelected =
+                      settings.fontSize === sz.id ||
+                      (sz.id === 'medium' && (settings.fontSize as string) === 'normal');
+                    return (
+                      <button
+                        key={sz.id}
+                        type="button"
+                        onClick={() => {
+                          updateSettings({ fontSize: sz.id });
+                          playTone('water');
+                        }}
+                        className={`py-3 px-2 rounded-2xl border text-xs font-bold transition-all cursor-pointer text-center flex flex-col items-center gap-1 ${
+                          isSelected
+                            ? 'bg-gradient-to-r from-amber-500/30 to-rose-500/30 border-amber-400 shadow-md ring-2 ring-amber-400/60 text-white font-black scale-105'
+                            : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'
+                        }`}
+                      >
+                        <span className="text-xs sm:text-sm font-black">{sz.label}</span>
+                        <span className="text-[10px] text-white/50">{sz.desc}</span>
+                      </button>
+                    );
+                  })}
                 </div>
+                <p className="text-[11px] text-amber-200/80 pt-1">
+                  ✓ El cambio se aplica inmediatamente a toda la aplicación con ajuste de escala completo.
+                </p>
               </div>
             </div>
           )}
@@ -1114,100 +1130,113 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
-              {/* Autenticación Google Nube y Selección de Dispositivo */}
+              {/* Perfil Individual de este Celular y Nombres */}
               <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-indigo-950/40 via-purple-950/30 to-black/50 border border-indigo-400/30 space-y-4">
                 <div className="flex items-center justify-between pb-2 border-b border-white/10">
                   <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-emerald-400" />
-                    <span>Sincronización con Cuenta Google & Pareja</span>
+                    <User className="w-4 h-4 text-rose-400" />
+                    <span>Nombres de Usuario y Pareja (Este Teléfono)</span>
                   </h4>
-                  <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">
-                    {firebaseUser ? '🟢 Sincronizado' : 'Modo Local'}
+                  <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300">
+                    Individual
                   </span>
                 </div>
 
-                {/* Selección de quién usa este teléfono */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold text-white/90">
-                    ¿Quién es el dueño de este teléfono? (Selección individual):
-                  </label>
-                  <p className="text-[10px] text-white/50">
-                    Cada teléfono es independiente. Elige cuál de las dos personas eres tú en este celular:
-                  </p>
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        updateSettings({ deviceRole: 'me' });
-                        if (activeRole !== 'me') toggleRole();
-                      }}
-                      className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
-                        activeRole === 'me'
-                          ? 'bg-rose-500/30 border-rose-400 text-white font-bold ring-2 ring-rose-400/50 shadow-md'
-                          : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'
-                      }`}
-                    >
-                      <span className="text-xl block mb-0.5">{me.avatar}</span>
-                      <span className="text-xs font-bold block truncate">Soy Yo ({me.name})</span>
-                      <span className="text-[10px] text-rose-300 font-semibold block">Persona 1</span>
-                    </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Mi nombre */}
+                  <div className="p-3 rounded-2xl bg-black/40 border border-white/10 space-y-1.5">
+                    <label className="text-[11px] font-bold text-emerald-300 flex items-center gap-1">
+                      <span>👤 Mi Nombre:</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={myNameInput}
+                        onChange={(e) => setMyNameInput(e.target.value)}
+                        placeholder="Ej. Lucas"
+                        className="flex-1 px-3 py-1.5 rounded-xl bg-white/5 border border-white/20 text-xs text-white focus:outline-none focus:border-emerald-400 font-bold"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (myNameInput.trim()) {
+                            updateUserName('me', myNameInput.trim());
+                            setRestoreStatus('¡Tu nombre ha sido guardado!');
+                            setTimeout(() => setRestoreStatus(null), 3000);
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs cursor-pointer shadow-sm active:scale-95"
+                      >
+                        Guardar
+                      </button>
+                    </div>
+                  </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        updateSettings({ deviceRole: 'partner' });
-                        if (activeRole !== 'partner') toggleRole();
-                      }}
-                      className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
-                        activeRole === 'partner'
-                          ? 'bg-emerald-500/30 border-emerald-400 text-white font-bold ring-2 ring-emerald-400/50 shadow-md'
-                          : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'
-                      }`}
-                    >
-                      <span className="text-xl block mb-0.5">{partner.avatar}</span>
-                      <span className="text-xs font-bold block truncate">Soy Mi Pareja ({partner.name})</span>
-                      <span className="text-[10px] text-emerald-300 font-semibold block">Persona 2</span>
-                    </button>
+                  {/* Nombre de mi pareja */}
+                  <div className="p-3 rounded-2xl bg-black/40 border border-white/10 space-y-1.5">
+                    <label className="text-[11px] font-bold text-rose-300 flex items-center gap-1">
+                      <span>🐼 Nombre de mi Pareja:</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={partnerNameInput}
+                        onChange={(e) => setPartnerNameInput(e.target.value)}
+                        placeholder="Ej. Sofía"
+                        className="flex-1 px-3 py-1.5 rounded-xl bg-white/5 border border-white/20 text-xs text-white focus:outline-none focus:border-rose-400 font-bold"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (partnerNameInput.trim()) {
+                            updateUserName('partner', partnerNameInput.trim());
+                            setRestoreStatus('¡Nombre de tu pareja guardado!');
+                            setTimeout(() => setRestoreStatus(null), 3000);
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs cursor-pointer shadow-sm active:scale-95"
+                      >
+                        Guardar
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {/* Estado de Cuenta de Google */}
-                <div className="pt-2 border-t border-white/10">
+                {/* Sincronización con Cuenta Google */}
+                <div className="pt-2 border-t border-white/10 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-white flex items-center gap-1.5">
+                      <Shield className="w-4 h-4 text-emerald-400" />
+                      <span>Sincronización con tu Cuenta de Google:</span>
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-300">
+                      {firebaseUser ? '🟢 Sincronizado' : 'Sin sincronizar'}
+                    </span>
+                  </div>
+
                   {firebaseUser ? (
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-black/40 border border-white/10">
+                    <div className="flex items-center justify-between p-3 rounded-2xl bg-black/50 border border-emerald-500/30">
                       <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                          <p className="text-xs font-bold text-white">{firebaseUser.displayName || 'Cuenta Google Conectada'}</p>
-                        </div>
+                        <p className="text-xs font-black text-white">{firebaseUser.displayName || 'Google Conectado'}</p>
                         <p className="text-[10px] text-white/50">{firebaseUser.email}</p>
-                        <p className="text-[10px] text-emerald-300 font-medium mt-0.5">
-                          Tus estados, notas y diarios se comparten automáticamente con tu pareja.
-                        </p>
                       </div>
                       <button
                         type="button"
-                        onClick={handleLogout}
-                        className="px-3 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-bold flex items-center gap-1 cursor-pointer self-start sm:self-center"
+                        onClick={handleGoogleLogin}
+                        className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold cursor-pointer"
                       >
-                        <LogOut className="w-3.5 h-3.5" />
-                        <span>Desconectar</span>
+                        Ver Sincronización
                       </button>
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      <button
-                        type="button"
-                        onClick={handleGoogleLogin}
-                        className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xs flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95 transition-all"
-                      >
-                        <Shield className="w-4 h-4 text-emerald-200" />
-                        <span>Conectar Cuenta de Google para Vincular con Pareja</span>
-                      </button>
-                      <p className="text-[10px] text-center text-white/50">
-                        Inicia sesión con tu cuenta de Google en ambos teléfonos para enlazar la app automáticamente sin errores.
-                      </p>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={handleGoogleLogin}
+                      className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xs flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95 transition-all"
+                    >
+                      <Shield className="w-4 h-4 text-emerald-200" />
+                      <span>Abrir Ventana de Sincronización con Google</span>
+                    </button>
                   )}
                 </div>
               </div>

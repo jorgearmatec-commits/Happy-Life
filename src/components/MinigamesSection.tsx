@@ -310,10 +310,6 @@ export const MinigamesSection: React.FC = () => {
       trigger3DConfetti();
       playTone('peaceful_chime');
 
-      sendMessage(
-        `🎲 [Dado de la Verdad 50/50]: ${winnerText}`
-      );
-
       updateMyStatus({
         lastAction: `🎲 Tiró dado de la verdad: Salió ${finalNumber}`,
       });
@@ -1452,10 +1448,6 @@ export const MinigamesSection: React.FC = () => {
 
       setUnoMessage(
         `🎉 ¡¡${playerName} SE QUEDA SIN CARTAS Y GANA LA PARTIDA DE UNO!! 🏆✨`
-      );
-
-      sendMessage(
-        `🌈 [UNO en Pareja]: ¡${playerName} ha ganado la partida! 💖`
       );
 
       updateMyStatus({
@@ -2682,13 +2674,6 @@ export const MinigamesSection: React.FC = () => {
 
                     playTone(
                       'cathedral_bells'
-                    );
-
-                    sendMessage(
-                      `🗣️ ¡¡${
-                        currentDisplayMe.name ||
-                        'Yo'
-                      } cantó UNO en pareja!! 💖`
                     );
                   }}
                   className="px-4 py-1.5 rounded-full bg-gradient-to-r from-red-600 via-rose-600 to-amber-500 text-white font-black text-xs cursor-pointer shadow-lg animate-pulse"

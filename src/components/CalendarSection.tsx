@@ -12,7 +12,6 @@ import {
 import { useApp } from '../context/AppContext';
 import { ModalPortal } from './ModalPortal';
 import { getDayInfo, MONTH_NAMES_ES, DayInfo } from '../data/calendarOnomastics';
-import { GeminiQuickModal } from './GeminiQuickModal';
 
 interface CalendarSectionProps {
   embedded?: boolean;
@@ -23,7 +22,6 @@ export const CalendarSection: React.FC<CalendarSectionProps> = ({ embedded = fal
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
-  const [isGeminiModalOpen, setIsGeminiModalOpen] = useState(false);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -53,9 +51,14 @@ export const CalendarSection: React.FC<CalendarSectionProps> = ({ embedded = fal
   const getDayEvents = (dayNum: number) => {
     const dayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
     const dayRems = (reminders || []).filter(
-      (r) => r.specificDateTime?.startsWith(dayStr) || r.dueTime?.startsWith(dayStr)
+      (r) =>
+        r.specificDateTime?.startsWith(dayStr) ||
+        r.dueTime?.startsWith(dayStr) ||
+        (r.createdAt && r.createdAt.startsWith(dayStr))
     );
-    const dayAlms = (alarms || []).filter((a) => a.date === dayStr);
+    const dayAlms = (alarms || []).filter(
+      (a) => a.date === dayStr || (!a.date && a.enabled)
+    );
     return { reminders: dayRems, alarms: dayAlms, count: dayRems.length + dayAlms.length };
   };
 
@@ -222,15 +225,6 @@ export const CalendarSection: React.FC<CalendarSectionProps> = ({ embedded = fal
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsGeminiModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-purple-500/20 hover:from-amber-500/30 hover:to-purple-500/30 border border-amber-300/30 text-amber-200 text-xs font-bold cursor-pointer transition-all active:scale-95"
-            title="Consultar más detalles con Gemini"
-          >
-            <Bot className="w-3.5 h-3.5 text-amber-300" />
-            <span>Consultar con Gemini ✨</span>
-          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
@@ -386,12 +380,6 @@ export const CalendarSection: React.FC<CalendarSectionProps> = ({ embedded = fal
           </div>
         )}
       </ModalPortal>
-
-      {/* Modal Gemini Quick */}
-      <GeminiQuickModal
-        isOpen={isGeminiModalOpen}
-        onClose={() => setIsGeminiModalOpen(false)}
-      />
     </section>
   );
 };

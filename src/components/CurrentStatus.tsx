@@ -280,9 +280,11 @@ export const CurrentStatus: React.FC = () => {
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [editingAvatarTarget, setEditingAvatarTarget] = useState<'me' | 'partner'>('me');
 
-  // Renaming state
+  // Renaming state (Tanto modal como inline para 100% fluidez en Android)
   const [isRenamingTarget, setIsRenamingTarget] = useState<'me' | 'partner' | null>(null);
   const [tempName, setTempName] = useState('');
+  const [inlineEditing, setInlineEditing] = useState<'me' | 'partner' | null>(null);
+  const [inlineName, setInlineName] = useState('');
 
   const PAUSE_OPTIONS = [
     {
@@ -310,6 +312,20 @@ export const CurrentStatus: React.FC = () => {
   const currentDisplayMe = activeRole === 'me' ? me : partner;
   const currentDisplayPartner = activeRole === 'me' ? partner : me;
 
+  const handleStartInline = (target: 'me' | 'partner') => {
+    setInlineEditing(target);
+    setInlineName(target === 'me' ? currentDisplayMe.name : currentDisplayPartner.name);
+  };
+
+  const handleSaveInline = (target: 'me' | 'partner') => {
+    const clean = inlineName.trim();
+    if (clean) {
+      const realTarget = target === 'me' ? activeRole : (activeRole === 'me' ? 'partner' : 'me');
+      updateUserName(realTarget, clean);
+    }
+    setInlineEditing(null);
+  };
+
   const handleOpenRename = (target: 'me' | 'partner') => {
     setIsRenamingTarget(target);
     setTempName(target === 'me' ? currentDisplayMe.name : currentDisplayPartner.name);
@@ -317,8 +333,9 @@ export const CurrentStatus: React.FC = () => {
 
   const handleSaveRename = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isRenamingTarget) {
-      updateUserName(isRenamingTarget === 'me' ? activeRole : (activeRole === 'me' ? 'partner' : 'me'), tempName);
+    if (isRenamingTarget && tempName.trim()) {
+      const realTarget = isRenamingTarget === 'me' ? activeRole : (activeRole === 'me' ? 'partner' : 'me');
+      updateUserName(realTarget, tempName.trim());
       setIsRenamingTarget(null);
     }
   };
@@ -359,19 +376,58 @@ export const CurrentStatus: React.FC = () => {
                 </span>
                 <span className="text-xs text-white/50">Prioridad Máxima</span>
               </div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <h2 className="text-2xl font-black text-white font-heading">
-                  {currentDisplayPartner.name}
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => handleOpenRename('partner')}
-                  className="p-1 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 hover:text-white cursor-pointer transition-all"
-                  title="Cambiar nombre de pareja"
+              {inlineEditing === 'partner' ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSaveInline('partner');
+                  }}
+                  className="flex items-center gap-1.5 mt-1"
                 >
-                  <Edit2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+                  <input
+                    type="text"
+                    autoFocus
+                    value={inlineName}
+                    onChange={(e) => setInlineName(e.target.value)}
+                    placeholder="Nombre pareja..."
+                    className="px-2.5 py-1.5 rounded-xl bg-black/70 border border-rose-400 text-white font-bold text-sm w-36 sm:w-44 focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="p-1.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 active:scale-90 cursor-pointer shadow-sm"
+                    title="Guardar nombre"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInlineEditing(null)}
+                    className="p-1.5 rounded-xl bg-white/10 text-white/70 hover:text-white active:scale-90 cursor-pointer"
+                    title="Cancelar"
+                  >
+                    ✕
+                  </button>
+                </form>
+              ) : (
+                <div className="flex items-center gap-2 mt-0.5">
+                  <h2
+                    onClick={() => handleStartInline('partner')}
+                    className="text-2xl font-black text-white font-heading cursor-pointer hover:text-rose-200 transition-colors"
+                    title="Toca para editar el nombre de tu pareja"
+                  >
+                    {currentDisplayPartner.name}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => handleStartInline('partner')}
+                    className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-90 text-white cursor-pointer transition-all border border-white/10 flex items-center gap-1"
+                    title="Cambiar nombre de pareja"
+                  >
+                    <Edit2 className="w-3.5 h-3.5 text-rose-300" />
+                    <span className="text-[10px] font-bold text-white/80 hidden xs:inline">Editar</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -532,19 +588,58 @@ export const CurrentStatus: React.FC = () => {
                 </span>
                 <span className="text-[10px] text-white/50">Tu espacio</span>
               </div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <h2 className="text-xl sm:text-2xl font-black text-white font-heading">
-                  {currentDisplayMe.name}
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => handleOpenRename('me')}
-                  className="p-1 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 hover:text-white cursor-pointer transition-all"
-                  title="Cambiar mi nombre"
+              {inlineEditing === 'me' ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSaveInline('me');
+                  }}
+                  className="flex items-center gap-1.5 mt-1"
                 >
-                  <Edit2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+                  <input
+                    type="text"
+                    autoFocus
+                    value={inlineName}
+                    onChange={(e) => setInlineName(e.target.value)}
+                    placeholder="Mi nombre..."
+                    className="px-2.5 py-1.5 rounded-xl bg-black/70 border border-emerald-400 text-white font-bold text-sm w-36 sm:w-44 focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="p-1.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 active:scale-90 cursor-pointer shadow-sm"
+                    title="Guardar mi nombre"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInlineEditing(null)}
+                    className="p-1.5 rounded-xl bg-white/10 text-white/70 hover:text-white active:scale-90 cursor-pointer"
+                    title="Cancelar"
+                  >
+                    ✕
+                  </button>
+                </form>
+              ) : (
+                <div className="flex items-center gap-2 mt-0.5">
+                  <h2
+                    onClick={() => handleStartInline('me')}
+                    className="text-xl sm:text-2xl font-black text-white font-heading cursor-pointer hover:text-emerald-200 transition-colors"
+                    title="Toca para editar tu nombre"
+                  >
+                    {currentDisplayMe.name}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => handleStartInline('me')}
+                    className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-90 text-white cursor-pointer transition-all border border-white/10 flex items-center gap-1"
+                    title="Cambiar mi nombre"
+                  >
+                    <Edit2 className="w-3.5 h-3.5 text-emerald-300" />
+                    <span className="text-[10px] font-bold text-white/80 hidden xs:inline">Editar</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

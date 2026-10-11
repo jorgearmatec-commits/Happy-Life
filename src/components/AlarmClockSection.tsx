@@ -629,16 +629,6 @@ export const AlarmClockSection: React.FC = () => {
                 <CalendarIcon className="w-4 h-4 text-amber-300" />
                 <span>Alarma + Google Calendar</span>
               </button>
-
-              {/* Icono mediano abajo que dice Calendario y muestra recordatorios y alarmas */}
-              <button
-                type="button"
-                onClick={() => setIsIntegratedCalendarOpen(true)}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-600/30 via-cyan-600/30 to-purple-600/30 hover:from-blue-600/40 hover:to-purple-600/40 border border-cyan-400/40 text-cyan-200 font-black text-xs flex items-center justify-center gap-2.5 cursor-pointer shadow-md transition-all active:scale-95"
-              >
-                <CalendarIcon className="w-5 h-5 text-cyan-300" />
-                <span>Calendario de Alarmas y Recordatorios</span>
-              </button>
             </div>
           </div>
         </div>

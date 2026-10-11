@@ -111,9 +111,6 @@ export const LocationSection: React.FC = () => {
   // 2. AVISOS RÁPIDOS: SOLO ENVÍAN TEXTO AL ESTADO (NO envían coordenadas GPS)
   const handleSendQuickNotice = (presetText: string) => {
     updateMyStatus({ lastAction: presetText });
-    try {
-      sendMessage(`📌 Aviso rápido: ${presetText}`);
-    } catch {}
     setStatusMessage(`¡Aviso enviado a tu estado: "${presetText}"!`);
     setTimeout(() => setStatusMessage(null), 3500);
   };
