@@ -97,7 +97,8 @@ const defaultSettings: AppSettings = {
   isLocked: false,
   locationSharingConsent: true,
   realTimeLocationActive: false,
-  duoPairCode: 'DUO-AMOR',
+  duoPairCode: 'HLD-' + Math.floor(1000 + Math.random() * 9000),
+  deviceToken: 'dev_' + Math.random().toString(36).substring(2, 10),
   locationIntervalSecs: 30,
   activeSectionsOrder: [
     'status',
@@ -115,7 +116,7 @@ const defaultSettings: AppSettings = {
 
 const initialMe: UserProfile = {
   id: 'user_me',
-  name: 'Amor Mío',
+  name: 'Yorsh',
   avatar: '🦊',
   status: 'Disponible para hablar',
   statusEmoji: '💬',
@@ -144,7 +145,7 @@ const initialMe: UserProfile = {
 
 const initialPartner: UserProfile = {
   id: 'user_partner',
-  name: 'Mi Pareja ❤️',
+  name: 'Anita',
   avatar: '🐼',
   status: 'Trabajando',
   statusEmoji: '💻',
@@ -323,30 +324,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const savedData = loadInitialData();
 
-  const initialExpenses: ExpenseItem[] = [
-    {
-      id: 'exp_1',
-      creator: 'me',
-      creatorName: 'Lucas',
-      date: new Date().toISOString().slice(0, 10),
-      category: 'Comida de perro',
-      description: 'Saco de comida de perro 15kg',
-      amount: 25000,
-      currency: 'CLP',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'exp_2',
-      creator: 'partner',
-      creatorName: 'Sofía',
-      date: new Date().toISOString().slice(0, 10),
-      category: 'Feria',
-      description: 'Verduras, frutas y feria de la semana',
-      amount: 45000,
-      currency: 'CLP',
-      createdAt: new Date().toISOString(),
-    },
-  ];
+  const initialExpenses: ExpenseItem[] = [];
 
   const [me, setMe] = useState<UserProfile>(savedData?.me || initialMe);
   const [partner, setPartner] = useState<UserProfile>(savedData?.partner || initialPartner);
@@ -405,11 +383,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return () => unsub();
   }, []);
 
-  const pairCode = settings.duoPairCode || 'DUO-AMOR';
+  const pairCode = settings.duoPairCode?.trim() || '';
+  const deviceToken = settings.deviceToken || '';
 
   // Helper centralizado para empujar actualizaciones hacia la otra App
   const pushSyncUpdate = useCallback(
-    async (updatePayload: { userProfile?: Partial<UserProfile>; newMessage?: ChatMessage }) => {
+    async (updatePayload: {
+      userProfile?: Partial<UserProfile>;
+      partnerProfile?: Partial<UserProfile>;
+      newMessage?: ChatMessage;
+    }) => {
       // 1. BroadcastChannel en la misma máquina o ventana
       try {
         const bc = new BroadcastChannel('happy_life_duo_sync');
@@ -417,20 +400,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         bc.close();
       } catch {}
 
-      // 2. Servidor para sincronizar entre teléfonos diferentes en tiempo real
+      // 2. Servidor para sincronizar entre teléfonos diferentes en tiempo real con credencial Bearer
       try {
-        await fetch('/api/sync/push', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pairCode,
-            role: activeRole,
-            ...updatePayload,
-          }),
-        });
+        if (deviceToken) {
+          await fetch('/api/sync/push', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${deviceToken}`,
+            },
+            body: JSON.stringify(updatePayload),
+          });
+        }
       } catch {}
     },
-    [pairCode, activeRole]
+    [activeRole, deviceToken]
   );
 
   // DETECCIÓN DE BATERÍA ELÉCTRICA REAL DEL TELÉFONO (API Batería Oficial de Teléfonos)
@@ -575,8 +559,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch {}
 
     const pullFromServer = async () => {
+      if (!deviceToken) return;
       try {
-        const res = await fetch(`/api/sync/pull?pairCode=${encodeURIComponent(pairCode)}&role=${activeRole}`);
+        const res = await fetch('/api/sync/pull', {
+          headers: {
+            Authorization: `Bearer ${deviceToken}`,
+          },
+        });
         if (res.ok) {
           const data = await res.json();
           if (data.partnerProfile) {
@@ -605,7 +594,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       clearInterval(interval);
       if (bc) bc.close();
     };
-  }, [pairCode, activeRole]);
+  }, [activeRole, deviceToken]);
 
   const trigger3DConfetti = useCallback(() => {
     try {
@@ -630,11 +619,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const updateUserName = (target: 'me' | 'partner', newName: string) => {
-    if (!newName.trim()) return;
+    const clean = newName.trim();
+    if (!clean) return;
     if (target === 'me') {
-      setMe((prev) => ({ ...prev, name: newName.trim() }));
+      setMe((prev) => {
+        const updated = { ...prev, name: clean };
+        pushSyncUpdate({ userProfile: updated });
+        return updated;
+      });
     } else {
-      setPartner((prev) => ({ ...prev, name: newName.trim() }));
+      setPartner((prev) => {
+        const updated = { ...prev, name: clean };
+        pushSyncUpdate({ partnerProfile: updated });
+        return updated;
+      });
     }
   };
 

@@ -53,17 +53,12 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 export { db, collection, doc, setDoc, getDoc, onSnapshot, query, orderBy, serverTimestamp };
 
 export async function loginWithGoogle() {
-  try {
-    // Only attempt real popup if a valid real key is provided
-    if (import.meta.env.VITE_FIREBASE_API_KEY && !import.meta.env.VITE_FIREBASE_API_KEY.includes('Dummy')) {
-      const result = await signInWithPopup(auth, googleProvider);
-      return result.user;
-    }
-    return null;
-  } catch (err: unknown) {
-    console.warn("Google Sign-In notice (fallback enabled):", err);
-    return null;
+  const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+  if (!apiKey || apiKey.includes('Dummy')) {
+    throw new Error('CONFIG_PENDING: Las credenciales de Firebase OAuth no están configuradas en el entorno.');
   }
+  const result = await signInWithPopup(auth, googleProvider);
+  return result.user;
 }
 
 export async function logoutUser() {

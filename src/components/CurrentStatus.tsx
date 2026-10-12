@@ -411,7 +411,7 @@ export const CurrentStatus: React.FC = () => {
               ) : (
                 <div className="flex items-center gap-2 mt-0.5">
                   <h2
-                    onClick={() => handleStartInline('partner')}
+                    onClick={() => handleOpenRename('partner')}
                     className="text-2xl font-black text-white font-heading cursor-pointer hover:text-rose-200 transition-colors"
                     title="Toca para editar el nombre de tu pareja"
                   >
@@ -419,12 +419,12 @@ export const CurrentStatus: React.FC = () => {
                   </h2>
                   <button
                     type="button"
-                    onClick={() => handleStartInline('partner')}
-                    className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-90 text-white cursor-pointer transition-all border border-white/10 flex items-center gap-1"
+                    onClick={() => handleOpenRename('partner')}
+                    className="px-2.5 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 active:scale-95 text-rose-200 cursor-pointer transition-all border border-rose-400/40 flex items-center gap-1.5 shadow-sm"
                     title="Cambiar nombre de pareja"
                   >
                     <Edit2 className="w-3.5 h-3.5 text-rose-300" />
-                    <span className="text-[10px] font-bold text-white/80 hidden xs:inline">Editar</span>
+                    <span className="text-xs font-black text-rose-200">Editar</span>
                   </button>
                 </div>
               )}
@@ -623,7 +623,7 @@ export const CurrentStatus: React.FC = () => {
               ) : (
                 <div className="flex items-center gap-2 mt-0.5">
                   <h2
-                    onClick={() => handleStartInline('me')}
+                    onClick={() => handleOpenRename('me')}
                     className="text-xl sm:text-2xl font-black text-white font-heading cursor-pointer hover:text-emerald-200 transition-colors"
                     title="Toca para editar tu nombre"
                   >
@@ -631,12 +631,12 @@ export const CurrentStatus: React.FC = () => {
                   </h2>
                   <button
                     type="button"
-                    onClick={() => handleStartInline('me')}
-                    className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-90 text-white cursor-pointer transition-all border border-white/10 flex items-center gap-1"
+                    onClick={() => handleOpenRename('me')}
+                    className="px-2.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 active:scale-95 text-emerald-200 cursor-pointer transition-all border border-emerald-400/40 flex items-center gap-1.5 shadow-sm"
                     title="Cambiar mi nombre"
                   >
                     <Edit2 className="w-3.5 h-3.5 text-emerald-300" />
-                    <span className="text-[10px] font-bold text-white/80 hidden xs:inline">Editar</span>
+                    <span className="text-xs font-black text-emerald-200">Editar</span>
                   </button>
                 </div>
               )}

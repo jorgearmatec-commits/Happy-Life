@@ -1153,7 +1153,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         type="text"
                         value={myNameInput}
                         onChange={(e) => setMyNameInput(e.target.value)}
-                        placeholder="Ej. Lucas"
+                        placeholder="Ej. Yorsh"
                         className="flex-1 px-3 py-1.5 rounded-xl bg-white/5 border border-white/20 text-xs text-white focus:outline-none focus:border-emerald-400 font-bold"
                       />
                       <button
@@ -1182,7 +1182,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         type="text"
                         value={partnerNameInput}
                         onChange={(e) => setPartnerNameInput(e.target.value)}
-                        placeholder="Ej. Sofía"
+                        placeholder="Ej. Anita"
                         className="flex-1 px-3 py-1.5 rounded-xl bg-white/5 border border-white/20 text-xs text-white focus:outline-none focus:border-rose-400 font-bold"
                       />
                       <button
@@ -1258,22 +1258,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    value={settings.duoPairCode || 'DUO-AMOR'}
+                    value={settings.duoPairCode || ''}
                     onChange={(e) => updateSettings({ duoPairCode: e.target.value.toUpperCase().trim() })}
-                    placeholder="DUO-AMOR"
+                    placeholder="Ej. HLD-7842"
                     className="flex-1 px-3 py-2 rounded-xl bg-black/60 border border-white/20 font-mono text-xs font-black text-rose-200 tracking-wider focus:outline-none focus:border-rose-400"
                   />
                   <button
                     type="button"
-                    onClick={() => {
-                      const newCode = prompt('Ingresa tu nuevo Código de Pareja (ej. AMOR-2026):', settings.duoPairCode || 'DUO-AMOR');
+                    onClick={async () => {
+                      const newCode = prompt('Ingresa tu nuevo Código de Pareja (ej. HLD-7842):', settings.duoPairCode || '');
                       if (newCode && newCode.trim()) {
-                        updateSettings({ duoPairCode: newCode.trim().toUpperCase() });
+                        const clean = newCode.trim().toUpperCase();
+                        try {
+                          const res = await fetch('/api/sync/pair', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ pairCode: clean }),
+                          });
+                          const data = await res.json();
+                          if (data.deviceToken) {
+                            updateSettings({ duoPairCode: clean, deviceToken: data.deviceToken });
+                            alert('¡Dispositivos vinculados y autorizados con token Bearer!');
+                          } else {
+                            alert(data.error || 'Código no válido o expirado.');
+                          }
+                        } catch {
+                          alert('Error al conectar con el servidor.');
+                        }
                       }
                     }}
                     className="px-3 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white text-xs font-bold cursor-pointer transition-colors shadow-sm"
                   >
-                    Guardar Código
+                    Vincular Código
                   </button>
                 </div>
               </div>

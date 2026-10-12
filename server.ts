@@ -3,6 +3,7 @@ import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -19,7 +20,7 @@ app.use(express.static(path.resolve(__dirname, 'public')));
 app.use('/cards', express.static(path.resolve(__dirname, 'public/cards')));
 
 // ---------------------------------------------------------------------------
-// SINCRONIZACIÓN EN TIEMPO REAL ENTRE APP 1 Y APP 2 (PAREJA INDEPENDIENTE)
+// SINCRONIZACIÓN EN TIEMPO REAL CON AUTENTICACIÓN BEARER Y EMPAREJAMIENTO SEGURO
 // ---------------------------------------------------------------------------
 interface SyncMessage {
   id: string;
@@ -33,59 +34,227 @@ interface SyncMessage {
 
 interface PeerSyncData {
   lastUpdated: number;
-  userProfile?: any; // estado, batería eléctrica, señal, ubicación en tiempo real
+  userProfile?: any;
   messages: SyncMessage[];
   remindersShared?: any[];
 }
 
-const syncRooms: Map<string, { app1: PeerSyncData; app2: PeerSyncData }> = new Map();
+interface SyncRoom {
+  id: string;
+  createdAt: number;
+  app1Token: string;
+  app2Token?: string;
+  app1: PeerSyncData;
+  app2: PeerSyncData;
+  backup?: any;
+}
 
-// Endpoint para vincular o crear código de pareja
-app.post('/api/sync/pair', (req, res) => {
-  const { pairCode } = req.body;
-  const cleanCode = (pairCode || 'DUO-AMOR').trim().toUpperCase();
+interface DeviceSession {
+  token: string;
+  roomId: string;
+  role: 'app1' | 'app2';
+  createdAt: number;
+  revoked: boolean;
+}
 
-  if (!syncRooms.has(cleanCode)) {
-    syncRooms.set(cleanCode, {
-      app1: { lastUpdated: Date.now(), messages: [] },
-      app2: { lastUpdated: Date.now(), messages: [] },
+interface PendingPairCode {
+  code: string;
+  roomId: string;
+  creatorToken: string;
+  createdAt: number;
+  expiresAt: number;
+  attempts: number;
+  maxAttempts: number;
+}
+
+const syncRooms: Map<string, SyncRoom> = new Map();
+const activeTokens: Map<string, DeviceSession> = new Map();
+const pendingPairCodes: Map<string, PendingPairCode> = new Map();
+
+// Limpiador automático de códigos temporales expirados
+const cleanExpiredCodes = () => {
+  const now = Date.now();
+  for (const [code, pending] of pendingPairCodes.entries()) {
+    if (now > pending.expiresAt || pending.attempts >= pending.maxAttempts) {
+      pendingPairCodes.delete(code);
+    }
+  }
+};
+
+// Middleware/validador de autenticación Bearer estricto
+const authenticateBearer = (
+  req: express.Request
+): { session: DeviceSession; room: SyncRoom; token: string } | null => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  const token = authHeader.slice(7).trim();
+  if (!token) return null;
+
+  const session = activeTokens.get(token);
+  if (!session || session.revoked) return null;
+
+  const room = syncRooms.get(session.roomId);
+  if (!room) return null;
+
+  return { session, room, token };
+};
+
+// 1. INICIAR EMPAREJAMIENTO: Genera código temporal seguro de un solo uso y emite token para Dispositivo 1
+app.post(['/api/sync/pair/code', '/api/sync/pair/init'], (req, res) => {
+  cleanExpiredCodes();
+
+  // Generación criptográfica segura de código temporal de 6 caracteres (ej. HLD-7492)
+  const codeNum = crypto.randomInt(1000, 9999);
+  const pairCode = `HLD-${codeNum}`;
+
+  const creatorToken = crypto.randomBytes(32).toString('hex');
+  const roomId = crypto.randomUUID();
+
+  const newRoom: SyncRoom = {
+    id: roomId,
+    createdAt: Date.now(),
+    app1Token: creatorToken,
+    app1: { lastUpdated: Date.now(), messages: [] },
+    app2: { lastUpdated: Date.now(), messages: [] },
+  };
+
+  syncRooms.set(roomId, newRoom);
+
+  activeTokens.set(creatorToken, {
+    token: creatorToken,
+    roomId,
+    role: 'app1',
+    createdAt: Date.now(),
+    revoked: false,
+  });
+
+  pendingPairCodes.set(pairCode, {
+    code: pairCode,
+    roomId,
+    creatorToken,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutos de validez
+    attempts: 0,
+    maxAttempts: 3,
+  });
+
+  return res.json({
+    success: true,
+    pairCode,
+    deviceToken: creatorToken,
+    expiresIn: 600,
+  });
+});
+
+// 2. UNIRSE AL EMPAREJAMIENTO: Valida código temporal, destruye código y emite token secreto para Dispositivo 2
+app.post(['/api/sync/pair', '/api/sync/pair/join'], (req, res) => {
+  cleanExpiredCodes();
+  const { pairCode } = req.body || {};
+
+  if (!pairCode || typeof pairCode !== 'string' || !pairCode.trim()) {
+    return res.status(400).json({ success: false, error: 'Código de emparejamiento requerido' });
+  }
+
+  const cleanCode = pairCode.trim().toUpperCase();
+  const pending = pendingPairCodes.get(cleanCode);
+
+  if (!pending) {
+    return res.status(401).json({
+      success: false,
+      error: 'Código de emparejamiento inválido o inexistente. No se permite crear habitaciones arbitrarias.',
     });
   }
+
+  if (Date.now() > pending.expiresAt) {
+    pendingPairCodes.delete(cleanCode);
+    return res.status(401).json({
+      success: false,
+      error: 'El código de emparejamiento ha expirado. Genera uno nuevo.',
+    });
+  }
+
+  pending.attempts += 1;
+  if (pending.attempts > pending.maxAttempts) {
+    pendingPairCodes.delete(cleanCode);
+    return res.status(401).json({
+      success: false,
+      error: 'Se superó el límite máximo de intentos permitidos para este código.',
+    });
+  }
+
+  const room = syncRooms.get(pending.roomId);
+  if (!room) {
+    pendingPairCodes.delete(cleanCode);
+    return res.status(404).json({ success: false, error: 'Habitación de sincronización no encontrada' });
+  }
+
+  // Generar token secreto independiente para el segundo dispositivo
+  const joinerToken = crypto.randomBytes(32).toString('hex');
+  room.app2Token = joinerToken;
+
+  activeTokens.set(joinerToken, {
+    token: joinerToken,
+    roomId: pending.roomId,
+    role: 'app2',
+    createdAt: Date.now(),
+    revoked: false,
+  });
+
+  // Destruir código temporal inmediatamente (uso único)
+  pendingPairCodes.delete(cleanCode);
 
   return res.json({
     success: true,
     pairCode: cleanCode,
-    connectedUsers: 2,
+    deviceToken: joinerToken,
+    role: 'partner',
   });
 });
 
-// Endpoint para empujar actualización (desde App 1 o App 2)
-app.post('/api/sync/push', (req, res) => {
-  const { pairCode, role, userProfile, newMessage, remindersShared } = req.body;
-  const cleanCode = (pairCode || 'DUO-AMOR').trim().toUpperCase();
-
-  let room = syncRooms.get(cleanCode);
-  if (!room) {
-    room = {
-      app1: { lastUpdated: Date.now(), messages: [] },
-      app2: { lastUpdated: Date.now(), messages: [] },
-    };
-    syncRooms.set(cleanCode, room);
+// 3. DESVINCULAR DISPOSITIVO: Revoca el token Bearer autenticado
+app.post('/api/sync/unpair', (req, res) => {
+  const auth = authenticateBearer(req);
+  if (!auth) {
+    return res.status(401).json({ success: false, error: 'Credencial Bearer requerida o no autorizada' });
   }
 
-  const slot = role === 'partner' ? 'app2' : 'app1';
-  const targetPeer = role === 'partner' ? 'app1' : 'app2';
+  auth.session.revoked = true;
+  activeTokens.delete(auth.token);
+
+  return res.json({ success: true, message: 'Dispositivo desvinculado con éxito' });
+});
+
+// 4. PUSH PROTEGIDO: Modifica datos exigiendo Authorization: Bearer <deviceToken>
+app.post('/api/sync/push', (req, res) => {
+  const auth = authenticateBearer(req);
+  if (!auth) {
+    return res.status(401).json({
+      success: false,
+      error: 'No autorizado: Credencial Bearer requerida para modificar datos de sincronización',
+    });
+  }
+
+  const { session, room } = auth;
+  const slot = session.role;
+  const targetPeer = session.role === 'app1' ? 'app2' : 'app1';
+
+  const { userProfile, partnerProfile, newMessage, remindersShared } = req.body || {};
 
   if (userProfile) {
     room[slot].userProfile = userProfile;
     room[slot].lastUpdated = Date.now();
   }
 
+  if (partnerProfile) {
+    room[targetPeer].userProfile = partnerProfile;
+    room[targetPeer].lastUpdated = Date.now();
+  }
+
   if (newMessage) {
-    // Almacenar en ambas ranuras
     room[slot].messages.push(newMessage);
     room[targetPeer].messages.push(newMessage);
-    // Limitar historial
     if (room[slot].messages.length > 100) room[slot].messages.shift();
     if (room[targetPeer].messages.length > 100) room[targetPeer].messages.shift();
     room[slot].lastUpdated = Date.now();
@@ -102,18 +271,19 @@ app.post('/api/sync/push', (req, res) => {
   return res.json({ success: true, timestamp: Date.now() });
 });
 
-// Endpoint para traer actualizaciones del compañero
+// 5. PULL PROTEGIDO: Recupera información exigiendo Authorization: Bearer <deviceToken>
 app.get('/api/sync/pull', (req, res) => {
-  const cleanCode = ((req.query.pairCode as string) || 'DUO-AMOR').trim().toUpperCase();
-  const role = (req.query.role as string) || 'me';
-
-  const room = syncRooms.get(cleanCode);
-  if (!room) {
-    return res.json({ success: true, partnerProfile: null, newMessages: [], remindersShared: null });
+  const auth = authenticateBearer(req);
+  if (!auth) {
+    return res.status(401).json({
+      success: false,
+      error: 'No autorizado: Credencial Bearer requerida para consultar sincronización',
+    });
   }
 
-  const partnerSlot = role === 'partner' ? 'app1' : 'app2';
-  const mySlot = role === 'partner' ? 'app2' : 'app1';
+  const { session, room } = auth;
+  const partnerSlot = session.role === 'app1' ? 'app2' : 'app1';
+  const mySlot = session.role;
 
   return res.json({
     success: true,
@@ -124,32 +294,45 @@ app.get('/api/sync/pull', (req, res) => {
   });
 });
 
-// Almacenamiento en memoria para copias de seguridad de usuarios Google
-const userBackups: Map<string, any> = new Map();
-
+// 6. RESPALDO PROTEGIDO EN LA NUBE: Guardar y restaurar con autenticación Bearer
 app.post('/api/sync/backup', (req, res) => {
-  const { email, data } = req.body;
-  if (!email || !data) {
+  const auth = authenticateBearer(req);
+  if (!auth) {
+    return res.status(401).json({
+      success: false,
+      error: 'No autorizado: Credencial Bearer requerida para respaldar datos',
+    });
+  }
+
+  const { room } = auth;
+  const { data, email } = req.body || {};
+  if (!data) {
     return res.status(400).json({ error: 'Faltan parámetros de respaldo' });
   }
-  const cleanEmail = String(email).trim().toLowerCase();
-  userBackups.set(cleanEmail, {
+
+  room.backup = {
     data,
+    email: email || null,
     savedAt: Date.now(),
-  });
+  };
+
   return res.json({ success: true, savedAt: Date.now() });
 });
 
 app.get('/api/sync/backup', (req, res) => {
-  const email = (req.query.email as string || '').trim().toLowerCase();
-  if (!email) {
-    return res.status(400).json({ error: 'Email requerido' });
+  const auth = authenticateBearer(req);
+  if (!auth) {
+    return res.status(401).json({
+      success: false,
+      error: 'No autorizado: Credencial Bearer requerida para restaurar respaldo',
+    });
   }
-  const backup = userBackups.get(email);
+
+  const { room } = auth;
   return res.json({
     success: true,
-    backup: backup ? backup.data : null,
-    savedAt: backup ? backup.savedAt : null,
+    backup: room.backup ? room.backup.data : null,
+    savedAt: room.backup ? room.backup.savedAt : null,
   });
 });
 

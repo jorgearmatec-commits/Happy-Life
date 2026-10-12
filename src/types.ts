@@ -235,6 +235,15 @@ export interface ExpenseItem {
   createdAt: string;
 }
 
+export interface ExpenseSuggestion {
+  category: string;
+  amount: number;
+  currency: ExpenseCurrency;
+  description?: string;
+  frequency: number;
+  lastUsedDate?: string;
+}
+
 export interface AppSettings {
   backgroundTheme: string;
   customBgImage?: string;
@@ -268,6 +277,7 @@ export interface AppSettings {
   activeSectionsOrder: string[];
   activeMenu: string; // Current single independent menu
   recentEmojis: string[];
-  duoPairCode?: string; // Código de sincronización para conectar App 1 y App 2
+  duoPairCode?: string; // Código temporal de sincronización para conectar App 1 y App 2
+  deviceToken?: string; // Identificador/token único del dispositivo independiente
   locationIntervalSecs?: number; // Rango de actualización en segundos para optimización (ej. 30s)
 }
