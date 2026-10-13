@@ -978,25 +978,26 @@ test('15. Prueba de integración de API: intento de modificar la tarjeta ajena m
     next();
   };
 
-  // Endpoint PUSH: Implementación vulnerable actual de server.ts (admite partnerProfile de forma no aislada)
+  // Endpoint PUSH: Implementación segura con aislamiento estricto de slots (conforme a server.ts)
   app.post('/api/sync/push', authMiddleware, (req: any, res) => {
     const { session, room } = req;
     const slot = session.role; // 'app1' o 'app2'
-    const targetPeer = session.role === 'app1' ? 'app2' : 'app1';
     const { userProfile, partnerProfile } = req.body || {};
 
-    if (userProfile) {
-      room[slot].userProfile = userProfile;
+    if (userProfile && typeof userProfile === 'object') {
+      room[slot].userProfile = {
+        ...(room[slot].userProfile || {}),
+        ...userProfile,
+      };
       room[slot].lastUpdated = Date.now();
     }
 
-    // AUDITORÍA CRÍTICA: server.ts actualmente contiene estas líneas que permiten alterar la tarjeta de la pareja
+    // CORRECCIÓN P1: partnerProfile se ignora defensivamente y no sobreescribe al targetPeer
     if (partnerProfile) {
-      room[targetPeer].userProfile = partnerProfile;
-      room[targetPeer].lastUpdated = Date.now();
+      // Bloqueado: ningún cliente puede escribir en la tarjeta de su pareja
     }
 
-    res.json({ success: true, slotWritten: slot, peerOverwritten: !!partnerProfile });
+    res.json({ success: true, slotWritten: slot });
   });
 
   // Endpoint PULL
@@ -1059,13 +1060,23 @@ test('15. Prueba de integración de API: intento de modificar la tarjeta ajena m
     });
     const anitaPullData = await anitaPullRes.json();
 
-    // DEMOSTRACIÓN CRÍTICA DEL DEFECTO:
-    // Con la implementación actual de server.ts, el perfil propio de Anita fue sobreescrito directamente por la petición de Yorsh
-    const wasAnitaTampered = anitaPullData.myProfile?.name === 'Anita Hackeada por Yorsh';
+    // VERIFICACIÓN DE SEGURIDAD P1 (DEFECTO CORREGIDO):
+    // Con la corrección en server.ts, las peticiones que incluyen 'partnerProfile' son ignoradas
+    // defensivamente y NO sobreescriben la tarjeta ajena de la pareja.
     assert.equal(
-      wasAnitaTampered,
-      true,
-      'EVIDENCIA: La ruta /api/sync/push actual en server.ts carece de control de propiedad y permite a Yorsh alterar la tarjeta de Anita'
+      anitaPullData.myProfile?.name,
+      'Anita',
+      'La tarjeta propia de Anita permanece intacta e inmune a intentos de manipulación de Yorsh'
+    );
+    assert.equal(
+      anitaPullData.myProfile?.avatar,
+      '🐼',
+      'El avatar de Anita no puede ser modificado por peticiones HTTP ajenas'
+    );
+    assert.equal(
+      anitaPullData.partnerProfile?.name,
+      'Yorsh',
+      'Anita sigue viendo el perfil legítimo de Yorsh'
     );
 
     // 6. ATAQUE DIRECCIÓN 2: Anita (tokenAnita) envía una petición HTTP directa intentando manipular a Yorsh
@@ -1084,11 +1095,20 @@ test('15. Prueba de integración de API: intento de modificar la tarjeta ajena m
     });
     const yorshPullData = await yorshPullRes.json();
 
-    const wasYorshTampered = yorshPullData.myProfile?.name === 'Yorsh Hackeado por Anita';
     assert.equal(
-      wasYorshTampered,
-      true,
-      'EVIDENCIA: La ruta /api/sync/push actual en server.ts permite a Anita alterar la tarjeta de Yorsh en sentido contrario'
+      yorshPullData.myProfile?.name,
+      'Yorsh',
+      'La tarjeta propia de Yorsh permanece intacta e inmune a intentos de manipulación de Anita'
+    );
+    assert.equal(
+      yorshPullData.myProfile?.avatar,
+      '🦊',
+      'El avatar de Yorsh no puede ser modificado por peticiones HTTP ajenas'
+    );
+    assert.equal(
+      yorshPullData.partnerProfile?.name,
+      'Anita',
+      'Yorsh sigue viendo el perfil legítimo de Anita'
     );
   } finally {
     server.close();

@@ -243,14 +243,19 @@ app.post('/api/sync/push', (req, res) => {
 
   const { userProfile, partnerProfile, newMessage, remindersShared, expensesShared } = req.body || {};
 
-  if (userProfile) {
-    room[slot].userProfile = userProfile;
+  if (userProfile && typeof userProfile === 'object') {
+    room[slot].userProfile = {
+      ...(room[slot].userProfile || {}),
+      ...userProfile,
+    };
     room[slot].lastUpdated = Date.now();
   }
 
+  // VULNERABILIDAD P1 CORREGIDA: Cada credencial autenticada solo puede escribir en el espacio
+  // de datos que le corresponde (slot). Se ignora de forma explícita y segura cualquier intento de
+  // sobreescribir la tarjeta de la pareja (partnerProfile) mediante petición HTTP directa.
   if (partnerProfile) {
-    room[targetPeer].userProfile = partnerProfile;
-    room[targetPeer].lastUpdated = Date.now();
+    console.warn(`[Sync Security] Intento bloqueado de modificar perfil ajeno desde slot ${slot}`);
   }
 
   if (newMessage) {
@@ -295,6 +300,7 @@ app.get('/api/sync/pull', (req, res) => {
 
   return res.json({
     success: true,
+    myProfile: room[mySlot].userProfile || null,
     partnerProfile: room[partnerSlot].userProfile || null,
     messages: room[mySlot].messages || [],
     remindersShared: room[partnerSlot].remindersShared || null,
