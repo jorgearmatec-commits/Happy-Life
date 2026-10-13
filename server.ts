@@ -37,6 +37,7 @@ interface PeerSyncData {
   userProfile?: any;
   messages: SyncMessage[];
   remindersShared?: any[];
+  expensesShared?: any[];
 }
 
 interface SyncRoom {
@@ -240,7 +241,7 @@ app.post('/api/sync/push', (req, res) => {
   const slot = session.role;
   const targetPeer = session.role === 'app1' ? 'app2' : 'app1';
 
-  const { userProfile, partnerProfile, newMessage, remindersShared } = req.body || {};
+  const { userProfile, partnerProfile, newMessage, remindersShared, expensesShared } = req.body || {};
 
   if (userProfile) {
     room[slot].userProfile = userProfile;
@@ -268,6 +269,13 @@ app.post('/api/sync/push', (req, res) => {
     room[targetPeer].lastUpdated = Date.now();
   }
 
+  if (expensesShared && Array.isArray(expensesShared)) {
+    room[slot].expensesShared = expensesShared;
+    room[targetPeer].expensesShared = expensesShared;
+    room[slot].lastUpdated = Date.now();
+    room[targetPeer].lastUpdated = Date.now();
+  }
+
   return res.json({ success: true, timestamp: Date.now() });
 });
 
@@ -290,6 +298,7 @@ app.get('/api/sync/pull', (req, res) => {
     partnerProfile: room[partnerSlot].userProfile || null,
     messages: room[mySlot].messages || [],
     remindersShared: room[partnerSlot].remindersShared || null,
+    expensesShared: room[partnerSlot].expensesShared || null,
     lastUpdated: room[partnerSlot].lastUpdated,
   });
 });

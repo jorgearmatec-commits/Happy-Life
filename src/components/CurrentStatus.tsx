@@ -271,6 +271,7 @@ export const CurrentStatus: React.FC = () => {
     partner,
     activeRole,
     updateUserName,
+    updateMyAvatar,
     updateMyStatus,
     updateMySocialBattery,
     sendPauseNotice,
@@ -278,12 +279,11 @@ export const CurrentStatus: React.FC = () => {
 
   const [isPauseModalOpen, setIsPauseModalOpen] = useState(false);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
-  const [editingAvatarTarget, setEditingAvatarTarget] = useState<'me' | 'partner'>('me');
 
-  // Renaming state (Tanto modal como inline para 100% fluidez en Android)
-  const [isRenamingTarget, setIsRenamingTarget] = useState<'me' | 'partner' | null>(null);
+  // Renaming state (Exclusivo para la propia tarjeta, nunca para la de la pareja)
+  const [isRenamingTarget, setIsRenamingTarget] = useState<'me' | null>(null);
   const [tempName, setTempName] = useState('');
-  const [inlineEditing, setInlineEditing] = useState<'me' | 'partner' | null>(null);
+  const [inlineEditing, setInlineEditing] = useState<'me' | null>(null);
   const [inlineName, setInlineName] = useState('');
 
   const PAUSE_OPTIONS = [
@@ -312,30 +312,28 @@ export const CurrentStatus: React.FC = () => {
   const currentDisplayMe = activeRole === 'me' ? me : partner;
   const currentDisplayPartner = activeRole === 'me' ? partner : me;
 
-  const handleStartInline = (target: 'me' | 'partner') => {
-    setInlineEditing(target);
-    setInlineName(target === 'me' ? currentDisplayMe.name : currentDisplayPartner.name);
+  const handleStartInline = () => {
+    setInlineEditing('me');
+    setInlineName(currentDisplayMe.name);
   };
 
-  const handleSaveInline = (target: 'me' | 'partner') => {
+  const handleSaveInline = () => {
     const clean = inlineName.trim();
     if (clean) {
-      const realTarget = target === 'me' ? activeRole : (activeRole === 'me' ? 'partner' : 'me');
-      updateUserName(realTarget, clean);
+      updateUserName(activeRole, clean);
     }
     setInlineEditing(null);
   };
 
-  const handleOpenRename = (target: 'me' | 'partner') => {
-    setIsRenamingTarget(target);
-    setTempName(target === 'me' ? currentDisplayMe.name : currentDisplayPartner.name);
+  const handleOpenRename = () => {
+    setIsRenamingTarget('me');
+    setTempName(currentDisplayMe.name);
   };
 
   const handleSaveRename = (e: React.FormEvent) => {
     e.preventDefault();
     if (isRenamingTarget && tempName.trim()) {
-      const realTarget = isRenamingTarget === 'me' ? activeRole : (activeRole === 'me' ? 'partner' : 'me');
-      updateUserName(realTarget, tempName.trim());
+      updateUserName(activeRole, tempName.trim());
       setIsRenamingTarget(null);
     }
   };
@@ -351,21 +349,16 @@ export const CurrentStatus: React.FC = () => {
       >
         <div className="absolute top-0 right-0 w-36 h-36 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Header: Partner Name con botón de cambiar nombre */}
+        {/* Header: Tarjeta de la Pareja (ESTRICTAMENTE DE SOLO LECTURA) */}
         <div className="flex items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingAvatarTarget('partner');
-                  setIsAvatarModalOpen(true);
-                }}
-                className="w-16 h-16 rounded-3xl bg-rose-500/20 border-2 border-rose-400/40 flex items-center justify-center text-3xl shadow-lg hover:scale-105 active:scale-95 transition-transform cursor-pointer"
-                title="Cambiar avatar de tu pareja"
+              <div
+                className="w-16 h-16 rounded-3xl bg-rose-500/20 border-2 border-rose-400/40 flex items-center justify-center text-3xl shadow-lg select-none"
+                title={`Avatar de tu pareja (${currentDisplayPartner.name}) - Solo lectura`}
               >
                 {currentDisplayPartner.avatar}
-              </button>
+              </div>
               <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-[#121826] flex items-center justify-center" />
             </div>
 
@@ -374,60 +367,18 @@ export const CurrentStatus: React.FC = () => {
                 <span className="text-xs uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
                   Pareja ❤️
                 </span>
-                <span className="text-xs text-white/50">Prioridad Máxima</span>
+                <span className="text-[10px] text-white/50 flex items-center gap-1 font-bold">
+                  <span>🔒 Solo lectura</span>
+                </span>
               </div>
-              {inlineEditing === 'partner' ? (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleSaveInline('partner');
-                  }}
-                  className="flex items-center gap-1.5 mt-1"
+              <div className="flex items-center gap-2 mt-0.5">
+                <h2
+                  className="text-2xl font-black text-white font-heading select-none"
+                  title={`Tarjeta exclusiva de ${currentDisplayPartner.name} (Modo solo lectura)`}
                 >
-                  <input
-                    type="text"
-                    autoFocus
-                    value={inlineName}
-                    onChange={(e) => setInlineName(e.target.value)}
-                    placeholder="Nombre pareja..."
-                    className="px-2.5 py-1.5 rounded-xl bg-black/70 border border-rose-400 text-white font-bold text-sm w-36 sm:w-44 focus:outline-none"
-                  />
-                  <button
-                    type="submit"
-                    className="p-1.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 active:scale-90 cursor-pointer shadow-sm"
-                    title="Guardar nombre"
-                  >
-                    <Check className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setInlineEditing(null)}
-                    className="p-1.5 rounded-xl bg-white/10 text-white/70 hover:text-white active:scale-90 cursor-pointer"
-                    title="Cancelar"
-                  >
-                    ✕
-                  </button>
-                </form>
-              ) : (
-                <div className="flex items-center gap-2 mt-0.5">
-                  <h2
-                    onClick={() => handleOpenRename('partner')}
-                    className="text-2xl font-black text-white font-heading cursor-pointer hover:text-rose-200 transition-colors"
-                    title="Toca para editar el nombre de tu pareja"
-                  >
-                    {currentDisplayPartner.name}
-                  </h2>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenRename('partner')}
-                    className="px-2.5 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 active:scale-95 text-rose-200 cursor-pointer transition-all border border-rose-400/40 flex items-center gap-1.5 shadow-sm"
-                    title="Cambiar nombre de pareja"
-                  >
-                    <Edit2 className="w-3.5 h-3.5 text-rose-300" />
-                    <span className="text-xs font-black text-rose-200">Editar</span>
-                  </button>
-                </div>
-              )}
+                  {currentDisplayPartner.name}
+                </h2>
+              </div>
             </div>
           </div>
 
@@ -569,10 +520,7 @@ export const CurrentStatus: React.FC = () => {
             <div className="relative">
               <button
                 type="button"
-                onClick={() => {
-                  setEditingAvatarTarget('me');
-                  setIsAvatarModalOpen(true);
-                }}
+                onClick={() => setIsAvatarModalOpen(true)}
                 className="w-14 h-14 sm:w-16 sm:h-16 rounded-3xl bg-emerald-500/20 border-2 border-emerald-400/40 flex items-center justify-center text-3xl shadow-lg hover:scale-105 active:scale-95 transition-transform cursor-pointer"
                 title="Cambiar mi avatar"
               >
@@ -592,7 +540,7 @@ export const CurrentStatus: React.FC = () => {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    handleSaveInline('me');
+                    handleSaveInline();
                   }}
                   className="flex items-center gap-1.5 mt-1"
                 >
@@ -623,7 +571,7 @@ export const CurrentStatus: React.FC = () => {
               ) : (
                 <div className="flex items-center gap-2 mt-0.5">
                   <h2
-                    onClick={() => handleOpenRename('me')}
+                    onClick={handleOpenRename}
                     className="text-xl sm:text-2xl font-black text-white font-heading cursor-pointer hover:text-emerald-200 transition-colors"
                     title="Toca para editar tu nombre"
                   >
@@ -631,7 +579,7 @@ export const CurrentStatus: React.FC = () => {
                   </h2>
                   <button
                     type="button"
-                    onClick={() => handleOpenRename('me')}
+                    onClick={handleOpenRename}
                     className="px-2.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 active:scale-95 text-emerald-200 cursor-pointer transition-all border border-emerald-400/40 flex items-center gap-1.5 shadow-sm"
                     title="Cambiar mi nombre"
                   >
@@ -772,7 +720,7 @@ export const CurrentStatus: React.FC = () => {
       <ModalPortal
         isOpen={isRenamingTarget !== null}
         onClose={() => setIsRenamingTarget(null)}
-        title={isRenamingTarget === 'me' ? 'Cambiar mi Nombre' : 'Cambiar Nombre de mi Pareja'}
+        title="Cambiar mi Nombre"
         icon={<Edit2 className="w-6 h-6 text-rose-400" />}
       >
         <form onSubmit={handleSaveRename} className="space-y-4">
@@ -869,14 +817,7 @@ export const CurrentStatus: React.FC = () => {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && e.currentTarget.value.trim()) {
                     const customEmoji = e.currentTarget.value.trim();
-                    if (editingAvatarTarget === 'me') {
-                      if (activeRole === 'me') me.avatar = customEmoji;
-                      else partner.avatar = customEmoji;
-                    } else {
-                      if (activeRole === 'me') partner.avatar = customEmoji;
-                      else me.avatar = customEmoji;
-                    }
-                    localStorage.setItem('happyduo_me_avatar', customEmoji);
+                    updateMyAvatar(customEmoji);
                     setIsAvatarModalOpen(false);
                   }
                 }}
@@ -888,14 +829,7 @@ export const CurrentStatus: React.FC = () => {
                   const input = document.getElementById('custom-emoji-input') as HTMLInputElement;
                   if (input && input.value.trim()) {
                     const customEmoji = input.value.trim();
-                    if (editingAvatarTarget === 'me') {
-                      if (activeRole === 'me') me.avatar = customEmoji;
-                      else partner.avatar = customEmoji;
-                    } else {
-                      if (activeRole === 'me') partner.avatar = customEmoji;
-                      else me.avatar = customEmoji;
-                    }
-                    localStorage.setItem('happyduo_me_avatar', customEmoji);
+                    updateMyAvatar(customEmoji);
                     setIsAvatarModalOpen(false);
                   }
                 }}
@@ -919,14 +853,7 @@ export const CurrentStatus: React.FC = () => {
                 key={`${av}-${idx}`}
                 type="button"
                 onClick={() => {
-                  if (editingAvatarTarget === 'me') {
-                    if (activeRole === 'me') me.avatar = av;
-                    else partner.avatar = av;
-                  } else {
-                    if (activeRole === 'me') partner.avatar = av;
-                    else me.avatar = av;
-                  }
-                  localStorage.setItem('happyduo_me_avatar', av);
+                  updateMyAvatar(av);
                   setIsAvatarModalOpen(false);
                 }}
                 className="w-11 h-11 rounded-2xl bg-white/5 hover:bg-white/20 active:scale-90 border border-white/10 flex items-center justify-center text-2xl transition-all cursor-pointer shadow-sm hover:border-rose-400"

@@ -21,6 +21,12 @@ import {
 } from '../types';
 import { playTone } from '../components/AudioSynthesizer';
 import { auth, loginWithGoogle, logoutUser, onAuthStateChanged, FirebaseUser } from '../firebase';
+import {
+  buildBackupPayload,
+  encodeBackupPayload,
+  createBackupZip,
+  validateBackupAtomically,
+} from '../utils/backupUtils';
 
 // 120+ joyful, cute, WhatsApp style and animated avatars
 export const AVATAR_OPTIONS = [
@@ -228,6 +234,7 @@ interface AppContextType {
   setActiveMenu: (menuId: string) => void;
   toggleRole: () => void;
   updateUserName: (target: 'me' | 'partner', newName: string) => void;
+  updateMyAvatar: (avatar: string) => void;
   updateMyStatus: (
     statusOrPartial: StatusOption | { lastAction?: string; status?: StatusOption; emoji?: string },
     emoji?: string
@@ -392,6 +399,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       userProfile?: Partial<UserProfile>;
       partnerProfile?: Partial<UserProfile>;
       newMessage?: ChatMessage;
+      expensesShared?: ExpenseItem[];
     }) => {
       // 1. BroadcastChannel en la misma máquina o ventana
       try {
@@ -505,23 +513,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           (pos) => {
             const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
             const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            setMe((prev) => {
-              const updatedLoc = {
-                lat: coords.lat,
-                lng: coords.lng,
-                name: `GPS: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`,
-                updatedAt: `Actualizado ${timeStr}`,
-                isRealTime: true,
-              };
-              const updatedMe = {
-                ...prev,
-                lastLocation: updatedLoc,
-                lastAction: `Ubicación GPS en vivo: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`,
-                lastActionTime: 'Ahora',
-              };
-              pushSyncUpdate({ userProfile: updatedMe });
-              return updatedMe;
-            });
+            const updatedLoc = {
+              lat: coords.lat,
+              lng: coords.lng,
+              name: `GPS: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`,
+              updatedAt: `Actualizado ${timeStr}`,
+              isRealTime: true,
+            };
+            if (activeRole === 'me') {
+              setMe((prev) => {
+                const updatedMe = {
+                  ...prev,
+                  lastLocation: updatedLoc,
+                  lastAction: `Ubicación GPS en vivo: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`,
+                  lastActionTime: 'Ahora',
+                };
+                pushSyncUpdate({ userProfile: updatedMe });
+                return updatedMe;
+              });
+            } else {
+              setPartner((prev) => {
+                const updatedPartner = {
+                  ...prev,
+                  lastLocation: updatedLoc,
+                  lastAction: `Ubicación GPS en vivo: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`,
+                  lastActionTime: 'Ahora',
+                };
+                pushSyncUpdate({ partnerProfile: updatedPartner });
+                return updatedPartner;
+              });
+            }
           },
           (err) => {
             console.warn('GPS location tracking notice:', err);
@@ -534,11 +555,43 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     fetchCurrentGps();
     const timer = setInterval(fetchCurrentGps, intervalSecs * 1000);
     return () => clearInterval(timer);
-  }, [settings.realTimeLocationActive, settings.locationIntervalSecs, pushSyncUpdate]);
+  }, [settings.realTimeLocationActive, settings.locationIntervalSecs, pushSyncUpdate, activeRole]);
 
   // MOTOR DE SINCRONIZACIÓN CONTINUA ENTRE APP 1 Y APP 2
   useEffect(() => {
     let bc: BroadcastChannel | null = null;
+
+    const mergeIncomingExpenses = (incoming: ExpenseItem[]) => {
+      if (!Array.isArray(incoming) || incoming.length === 0) return;
+      setExpenses((prev) => {
+        const currentMap = new Map(prev.map((e) => [e.id, e]));
+        let hasChanges = false;
+        incoming.forEach((remoteExp) => {
+          if (!remoteExp || !remoteExp.id) return;
+          if (!currentMap.has(remoteExp.id)) {
+            currentMap.set(remoteExp.id, remoteExp);
+            hasChanges = true;
+          } else {
+            const local = currentMap.get(remoteExp.id)!;
+            if (
+              local.amount !== remoteExp.amount ||
+              local.category !== remoteExp.category ||
+              local.description !== remoteExp.description ||
+              local.date !== remoteExp.date ||
+              local.currency !== remoteExp.currency
+            ) {
+              currentMap.set(remoteExp.id, { ...local, ...remoteExp });
+              hasChanges = true;
+            }
+          }
+        });
+        if (!hasChanges) return prev;
+        return Array.from(currentMap.values()).sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+      });
+    };
+
     try {
       bc = new BroadcastChannel('happy_life_duo_sync');
       bc.onmessage = (event) => {
@@ -553,6 +606,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               if (prev.some((m) => m.id === data.newMessage.id)) return prev;
               return [...prev, data.newMessage];
             });
+          }
+          if (Array.isArray(data.expensesShared)) {
+            mergeIncomingExpenses(data.expensesShared);
           }
         }
       };
@@ -583,15 +639,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               return [...prev, ...toAdd];
             });
           }
+          if (Array.isArray(data.expensesShared) && data.expensesShared.length > 0) {
+            mergeIncomingExpenses(data.expensesShared);
+          }
         }
       } catch {}
     };
 
     pullFromServer();
-    const interval = setInterval(pullFromServer, 2500);
+    // Sincronización eficiente: 15 segundos continuo en primer plano
+    const interval = setInterval(pullFromServer, 15000);
+
+    // Actualización instantánea al volver a primer plano (focus / visibilitychange)
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        pullFromServer();
+      }
+    };
+    const handleFocus = () => {
+      pullFromServer();
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', handleFocus);
+    }
 
     return () => {
       clearInterval(interval);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', handleFocus);
+      }
       if (bc) bc.close();
     };
   }, [activeRole, deviceToken]);
@@ -621,6 +700,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const updateUserName = (target: 'me' | 'partner', newName: string) => {
     const clean = newName.trim();
     if (!clean) return;
+    // REGLA OBLIGATORIA: Cada integrante es dueño exclusivo de su propia tarjeta.
+    // Solo puede editar el nombre de su propio perfil según su rol activo.
+    if (target !== activeRole) {
+      console.warn('Operación bloqueada: Solo puedes editar tu propia tarjeta.');
+      return;
+    }
     if (target === 'me') {
       setMe((prev) => {
         const updated = { ...prev, name: clean };
@@ -636,6 +721,50 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const updateMyAvatar = (avatar: string) => {
+    const clean = avatar.trim();
+    if (!clean) return;
+    if (activeRole === 'me') {
+      setMe((prev) => {
+        const updated = { ...prev, avatar: clean };
+        pushSyncUpdate({ userProfile: updated });
+        return updated;
+      });
+    } else {
+      setPartner((prev) => {
+        const updated = { ...prev, avatar: clean };
+        pushSyncUpdate({ partnerProfile: updated });
+        return updated;
+      });
+    }
+  };
+
+  // Helper para reflejar actividad viva en las tarjetas de Yorsh y Anita y sincronizarla
+  const updateActiveUserAction = (actionText: string) => {
+    const nowStr = 'Ahora';
+    if (activeRole === 'me') {
+      setMe((prev) => {
+        const updated = {
+          ...prev,
+          lastAction: actionText,
+          lastActionTime: nowStr,
+        };
+        pushSyncUpdate({ userProfile: updated });
+        return updated;
+      });
+    } else {
+      setPartner((prev) => {
+        const updated = {
+          ...prev,
+          lastAction: actionText,
+          lastActionTime: nowStr,
+        };
+        pushSyncUpdate({ partnerProfile: updated });
+        return updated;
+      });
+    }
+  };
+
   const updateMyStatus = (
     statusOrPartial: StatusOption | { lastAction?: string; status?: StatusOption; emoji?: string },
     emoji?: string
@@ -644,21 +773,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (typeof statusOrPartial === 'object') {
       const actionText = statusOrPartial.lastAction || 'Actualizó su estado';
       if (activeRole === 'me') {
-        setMe((prev) => ({
-          ...prev,
-          status: statusOrPartial.status || prev.status,
-          statusEmoji: statusOrPartial.emoji || prev.statusEmoji,
-          lastAction: actionText,
-          lastActionTime: nowStr,
-        }));
+        setMe((prev) => {
+          const updated = {
+            ...prev,
+            status: statusOrPartial.status || prev.status,
+            statusEmoji: statusOrPartial.emoji || prev.statusEmoji,
+            lastAction: actionText,
+            lastActionTime: nowStr,
+          };
+          pushSyncUpdate({ userProfile: updated });
+          return updated;
+        });
       } else {
-        setPartner((prev) => ({
-          ...prev,
-          status: statusOrPartial.status || prev.status,
-          statusEmoji: statusOrPartial.emoji || prev.statusEmoji,
-          lastAction: actionText,
-          lastActionTime: nowStr,
-        }));
+        setPartner((prev) => {
+          const updated = {
+            ...prev,
+            status: statusOrPartial.status || prev.status,
+            statusEmoji: statusOrPartial.emoji || prev.statusEmoji,
+            lastAction: actionText,
+            lastActionTime: nowStr,
+          };
+          pushSyncUpdate({ partnerProfile: updated });
+          return updated;
+        });
       }
       return;
     }
@@ -666,21 +803,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const actionText = `Cambió su estado a: ${emoji || ''} ${statusOrPartial}`;
 
     if (activeRole === 'me') {
-      setMe((prev) => ({
-        ...prev,
-        status: statusOrPartial,
-        statusEmoji: emoji || '✨',
-        lastAction: actionText,
-        lastActionTime: nowStr,
-      }));
+      setMe((prev) => {
+        const updated = {
+          ...prev,
+          status: statusOrPartial,
+          statusEmoji: emoji || '✨',
+          lastAction: actionText,
+          lastActionTime: nowStr,
+        };
+        pushSyncUpdate({ userProfile: updated });
+        return updated;
+      });
     } else {
-      setPartner((prev) => ({
-        ...prev,
-        status: statusOrPartial,
-        statusEmoji: emoji || '✨',
-        lastAction: actionText,
-        lastActionTime: nowStr,
-      }));
+      setPartner((prev) => {
+        const updated = {
+          ...prev,
+          status: statusOrPartial,
+          statusEmoji: emoji || '✨',
+          lastAction: actionText,
+          lastActionTime: nowStr,
+        };
+        pushSyncUpdate({ partnerProfile: updated });
+        return updated;
+      });
     }
   };
 
@@ -690,19 +835,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const actionText = `Batería social al ${clamped}%`;
 
     if (activeRole === 'me') {
-      setMe((prev) => ({
-        ...prev,
-        socialBattery: clamped,
-        lastAction: actionText,
-        lastActionTime: nowStr,
-      }));
+      setMe((prev) => {
+        const updated = {
+          ...prev,
+          socialBattery: clamped,
+          lastAction: actionText,
+          lastActionTime: nowStr,
+        };
+        pushSyncUpdate({ userProfile: updated });
+        return updated;
+      });
     } else {
-      setPartner((prev) => ({
-        ...prev,
-        socialBattery: clamped,
-        lastAction: actionText,
-        lastActionTime: nowStr,
-      }));
+      setPartner((prev) => {
+        const updated = {
+          ...prev,
+          socialBattery: clamped,
+          lastAction: actionText,
+          lastActionTime: nowStr,
+        };
+        pushSyncUpdate({ partnerProfile: updated });
+        return updated;
+      });
     }
   };
 
@@ -711,41 +864,57 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const actionText = `Se siente ${emoji} ${feeling}`;
 
     if (activeRole === 'me') {
-      setMe((prev) => ({
-        ...prev,
-        feeling,
-        feelingEmoji: emoji,
-        feelingUpdatedAt: nowStr,
-        lastAction: actionText,
-        lastActionTime: 'Ahora',
-      }));
+      setMe((prev) => {
+        const updated = {
+          ...prev,
+          feeling,
+          feelingEmoji: emoji,
+          feelingUpdatedAt: nowStr,
+          lastAction: actionText,
+          lastActionTime: 'Ahora',
+        };
+        pushSyncUpdate({ userProfile: updated });
+        return updated;
+      });
     } else {
-      setPartner((prev) => ({
-        ...prev,
-        feeling,
-        feelingEmoji: emoji,
-        feelingUpdatedAt: nowStr,
-        lastAction: actionText,
-        lastActionTime: 'Ahora',
-      }));
+      setPartner((prev) => {
+        const updated = {
+          ...prev,
+          feeling,
+          feelingEmoji: emoji,
+          feelingUpdatedAt: nowStr,
+          lastAction: actionText,
+          lastActionTime: 'Ahora',
+        };
+        pushSyncUpdate({ partnerProfile: updated });
+        return updated;
+      });
     }
   };
 
   const updateMyCurrentTrack = (track: PlayingTrackInfo | undefined) => {
     if (activeRole === 'me') {
-      setMe((prev) => ({
-        ...prev,
-        currentTrack: track,
-        lastAction: track?.isPlaying ? `Escuchando: ${track.title}` : prev.lastAction,
-        lastActionTime: track?.isPlaying ? 'Ahora' : prev.lastActionTime,
-      }));
+      setMe((prev) => {
+        const updated = {
+          ...prev,
+          currentTrack: track,
+          lastAction: track?.isPlaying ? `Escuchando: ${track.title}` : prev.lastAction,
+          lastActionTime: track?.isPlaying ? 'Ahora' : prev.lastActionTime,
+        };
+        pushSyncUpdate({ userProfile: updated });
+        return updated;
+      });
     } else {
-      setPartner((prev) => ({
-        ...prev,
-        currentTrack: track,
-        lastAction: track?.isPlaying ? `Escuchando: ${track.title}` : prev.lastAction,
-        lastActionTime: track?.isPlaying ? 'Ahora' : prev.lastActionTime,
-      }));
+      setPartner((prev) => {
+        const updated = {
+          ...prev,
+          currentTrack: track,
+          lastAction: track?.isPlaying ? `Escuchando: ${track.title}` : prev.lastAction,
+          lastActionTime: track?.isPlaying ? 'Ahora' : prev.lastActionTime,
+        };
+        pushSyncUpdate({ partnerProfile: updated });
+        return updated;
+      });
     }
   };
 
@@ -762,19 +931,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const payload = { text, timestamp };
 
     if (activeRole === 'me') {
-      setMe((prev) => ({
-        ...prev,
-        pauseNotice: payload,
-        lastAction: `Envió pausa: "${text.substring(0, 35)}..."`,
-        lastActionTime: 'Ahora'
-      }));
+      setMe((prev) => {
+        const updated = {
+          ...prev,
+          pauseNotice: payload,
+          lastAction: `Envió pausa: "${text.substring(0, 35)}..."`,
+          lastActionTime: 'Ahora',
+        };
+        pushSyncUpdate({ userProfile: updated });
+        return updated;
+      });
     } else {
-      setPartner((prev) => ({
-        ...prev,
-        pauseNotice: payload,
-        lastAction: `Envió pausa: "${text.substring(0, 35)}..."`,
-        lastActionTime: 'Ahora'
-      }));
+      setPartner((prev) => {
+        const updated = {
+          ...prev,
+          pauseNotice: payload,
+          lastAction: `Envió pausa: "${text.substring(0, 35)}..."`,
+          lastActionTime: 'Ahora',
+        };
+        pushSyncUpdate({ partnerProfile: updated });
+        return updated;
+      });
     }
 
     if ('Notification' in window && Notification.permission === 'granted') {
@@ -799,19 +976,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     if (activeRole === 'me') {
-      setMe((prev) => ({
-        ...prev,
-        lastLocation: locPayload,
-        lastAction: `Ubicación compartida: ${name}`,
-        lastActionTime: 'Ahora'
-      }));
+      setMe((prev) => {
+        const updated = {
+          ...prev,
+          lastLocation: locPayload,
+          lastAction: `Ubicación: ${name}`,
+          lastActionTime: 'Ahora'
+        };
+        pushSyncUpdate({ userProfile: updated });
+        return updated;
+      });
     } else {
-      setPartner((prev) => ({
-        ...prev,
-        lastLocation: locPayload,
-        lastAction: `Ubicación compartida: ${name}`,
-        lastActionTime: 'Ahora'
-      }));
+      setPartner((prev) => {
+        const updated = {
+          ...prev,
+          lastLocation: locPayload,
+          lastAction: `Ubicación: ${name}`,
+          lastActionTime: 'Ahora'
+        };
+        pushSyncUpdate({ partnerProfile: updated });
+        return updated;
+      });
     }
   };
 
@@ -836,6 +1021,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     setReminders((prev) => [newNote, ...prev]);
     playTone(note.tone, note.customToneData);
+    updateActiveUserAction(`Creó recordatorio: ${note.title}`);
   };
 
   const updateReminder = (id: string, updatedNote: Partial<ReminderNote>) => {
@@ -852,6 +1038,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (nextState) {
             trigger3DConfetti();
             playTone('google_fresh');
+            updateActiveUserAction(`Completó: ${item.title} ✅`);
           }
           return { ...item, completed: nextState };
         }
@@ -911,6 +1098,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       updatedAt: nowIso,
     };
     setJournal((prev) => [newEntry, ...prev]);
+    updateActiveUserAction('Escribió en el diario de vida 📖');
   };
 
   const updateJournalEntry = (id: string, text: string, isImportant: boolean) => {
@@ -949,6 +1137,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setMessages((prev) => [...prev, newMsg]);
     playTone('google_fresh');
     pushSyncUpdate({ newMessage: newMsg });
+    updateActiveUserAction('Envió mensaje en el chat 💬');
   };
 
   const addRecentEmoji = (emoji: string) => {
@@ -991,13 +1180,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const currentName = activeRole === 'me' ? me.name : partner.name;
     const newExp: ExpenseItem = {
       ...exp,
-      id: 'exp_' + Date.now(),
+      id: 'exp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
       creator: activeRole,
       creatorName: currentName || (activeRole === 'me' ? 'Yo' : 'Mi Pareja'),
       createdAt: new Date().toISOString(),
     };
-    setExpenses((prev) => [newExp, ...prev]);
+    setExpenses((prev) => {
+      const updated = [newExp, ...prev];
+      pushSyncUpdate({ expensesShared: updated });
+      return updated;
+    });
     playTone('water');
+    updateActiveUserAction(`Registró gasto: ${exp.category} (${exp.amount} ${exp.currency})`);
   };
 
   const updateExpense = (id: string, updated: Partial<ExpenseItem>): boolean => {
@@ -1007,9 +1201,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (existing.creator !== activeRole) {
       return false;
     }
-    setExpenses((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, ...updated } : e))
-    );
+    setExpenses((prev) => {
+      const updatedList = prev.map((e) => (e.id === id ? { ...e, ...updated } : e));
+      pushSyncUpdate({ expensesShared: updatedList });
+      return updatedList;
+    });
     return true;
   };
 
@@ -1020,7 +1216,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (existing.creator !== activeRole) {
       return false;
     }
-    setExpenses((prev) => prev.filter((e) => e.id !== id));
+    setExpenses((prev) => {
+      const updatedList = prev.filter((e) => e.id !== id);
+      pushSyncUpdate({ expensesShared: updatedList });
+      return updatedList;
+    });
     return true;
   };
 
@@ -1033,9 +1233,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const exportEncryptedBackup = () => {
-    const fullPayload = {
-      version: '4.0',
-      exportedAt: new Date().toISOString(),
+    const fullPayload = buildBackupPayload({
       me,
       partner,
       reminders,
@@ -1043,10 +1241,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       journal,
       messages,
       recordings,
+      expenses,
       settings,
-    };
-    const jsonStr = JSON.stringify(fullPayload);
-    const encoded = btoa(encodeURIComponent(jsonStr));
+    });
+    const encoded = encodeBackupPayload(fullPayload);
     const blob = new Blob([encoded], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1058,10 +1256,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const exportZipBackup = async () => {
     try {
-      const zip = new JSZip();
-      const fullPayload = {
-        version: '4.0',
-        exportedAt: new Date().toISOString(),
+      const fullPayload = buildBackupPayload({
         me,
         partner,
         reminders,
@@ -1069,32 +1264,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         journal,
         messages,
         recordings,
+        expenses,
         settings,
-      };
+      });
 
-      const jsonStr = JSON.stringify(fullPayload, null, 2);
-      zip.file('nuestro_lugar_seguro_backup.json', jsonStr);
-
-      const readme = `=========================================================\n` +
-        `HAPPY LIFE DUO - NUESTRO LUGAR SEGURO ❤\n` +
-        `Copia de Seguridad Completa para Celular / PC\n` +
-        `Fecha de Exportación: ${new Date().toLocaleString()}\n` +
-        `=========================================================\n\n` +
-        `Este archivo ZIP contiene todos sus datos:\n` +
-        `- Diarios de vida compartidos y personales\n` +
-        `- Recordatorios y listas de tareas\n` +
-        `- Alarmas y tonos personalizados\n` +
-        `- Grabaciones de voz y audios compartidos\n` +
-        `- Historial del Mini Chat\n` +
-        `- Ajustes, colores de texto, fotos y preferencias\n\n` +
-        `Para restaurar en la app:\n` +
-        `1. Abre Happy Life Duo\n` +
-        `2. Ve a Ajustes y Personalización -> Seguridad & Respaldos\n` +
-        `3. Toca "Restaurar Copia" y selecciona este archivo ZIP o el JSON interior.\n` +
-        `¡Todo volverá a quedar exactamente como lo dejaron! 💖\n`;
-
-      zip.file('LEEME_INSTRUCCIONES.txt', readme);
-
+      const zip = createBackupZip(fullPayload);
       const blob = await zip.generateAsync({ type: 'blob' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -1129,28 +1303,35 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const restoreFromEncryptedBackup = (rawStr: string): boolean => {
     try {
-      let decodedStr = rawStr.trim();
-      try {
-        decodedStr = decodeURIComponent(atob(decodedStr));
-      } catch {
-        // fallback
+      const result = validateBackupAtomically(rawStr, me.name, partner.name);
+      if (!result.isValid || !result.data) {
+        console.error('Backup restoration rejected:', result.error);
+        return false;
       }
-      const data = JSON.parse(decodedStr);
-      if (data.me && data.partner) {
-        if (data.me) setMe(data.me);
-        if (data.partner) setPartner(data.partner);
-        if (data.reminders) setReminders(data.reminders);
-        if (data.alarms) setAlarms(data.alarms);
-        if (data.journal) setJournal(data.journal);
-        if (data.messages) setMessages(data.messages);
-        if (data.recordings) setRecordings(data.recordings);
-        if (data.expenses) setExpenses(data.expenses);
-        if (data.settings) setSettings(data.settings);
-        trigger3DConfetti();
-        return true;
+
+      const { data, sanitizedExpenses, hasExpensesProperty } = result;
+
+      // Aplicación estrictamente ATÓMICA de cambios al estado:
+      // Si la validación falló previamente, ningún setter de abajo se llega a invocar jamás.
+      if (data.me) setMe(data.me);
+      if (data.partner) setPartner(data.partner);
+      if (data.reminders) setReminders(data.reminders);
+      if (data.alarms) setAlarms(data.alarms);
+      if (data.journal) setJournal(data.journal);
+      if (data.messages) setMessages(data.messages);
+      if (data.recordings) setRecordings(data.recordings);
+
+      // Si la copia incluía 'expenses' (incluso como arreglo vacío []), se aplica.
+      // Si la copia es de versión histórica sin 'expenses', no se tocan los gastos locales actuales.
+      if (hasExpensesProperty && sanitizedExpenses !== undefined) {
+        setExpenses(sanitizedExpenses);
       }
+
+      if (data.settings) setSettings(data.settings);
+      trigger3DConfetti();
+      return true;
     } catch (err) {
-      console.error('Backup restoration failed:', err);
+      console.error('Backup restoration failed unexpectedly:', err);
     }
     return false;
   };
@@ -1191,6 +1372,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setActiveMenu,
         toggleRole,
         updateUserName,
+        updateMyAvatar,
         updateMyStatus,
         updateMySocialBattery,
         updateMyFeeling,

@@ -563,6 +563,27 @@ export const ExpenseCalculator: React.FC = () => {
   const statsPartner = useMemo(() => computeStatsFor(partnerExpenses, selectedCurrency), [partnerExpenses, selectedCurrency]);
   const statsShared = useMemo(() => computeStatsFor(expenses, selectedCurrency), [expenses, selectedCurrency]);
 
+  // Resumen estrictamente aislado por cada divisa para evitar cualquier suma cruzada
+  const currencyStats = useMemo(() => {
+    const list: ExpenseCurrency[] = ['CLP', 'ARS', 'USD'];
+    const summary: Record<ExpenseCurrency, { count: number; total: number }> = {
+      CLP: { count: 0, total: 0 },
+      ARS: { count: 0, total: 0 },
+      USD: { count: 0, total: 0 },
+    };
+
+    expenses.forEach((e) => {
+      const c = (e.currency || 'CLP') as ExpenseCurrency;
+      if (summary[c]) {
+        summary[c].count += 1;
+        summary[c].total += Number(e.amount) || 0;
+      }
+    });
+
+    const activeCurrenciesWithData = list.filter((c) => summary[c].count > 0);
+    return { summary, activeCurrenciesWithData };
+  }, [expenses]);
+
   // Selección de estadísticas activas según el alcance seleccionado
   const activeStats =
     expenseScope === 'me'
@@ -899,24 +920,38 @@ export const ExpenseCalculator: React.FC = () => {
 
         {/* Selector de 3 Divisas Solicitadas: CLP, ARS, USD */}
         <div className="flex items-center gap-1.5 bg-black/50 p-1.5 rounded-2xl border border-white/10 self-start sm:self-auto">
-          {(['CLP', 'ARS', 'USD'] as ExpenseCurrency[]).map((cur) => (
-            <button
-              key={cur}
-              type="button"
-              onClick={() => {
-                setSelectedCurrency(cur);
-                setCurrencyInput(cur);
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-                selectedCurrency === cur
-                  ? 'bg-amber-400 text-black shadow-md ring-2 ring-amber-300 scale-105'
-                  : 'text-white/70 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <span>{CURRENCY_CONFIG[cur].flag}</span>
-              <span>{cur}</span>
-            </button>
-          ))}
+          {(['CLP', 'ARS', 'USD'] as ExpenseCurrency[]).map((cur) => {
+            const count = currencyStats.summary[cur].count;
+            return (
+              <button
+                key={cur}
+                type="button"
+                onClick={() => {
+                  setSelectedCurrency(cur);
+                  setCurrencyInput(cur);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                  selectedCurrency === cur
+                    ? 'bg-amber-400 text-black shadow-md ring-2 ring-amber-300 scale-105'
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <span>{CURRENCY_CONFIG[cur].flag}</span>
+                <span>{cur}</span>
+                {count > 0 && (
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      selectedCurrency === cur
+                        ? 'bg-black/20 text-black'
+                        : 'bg-white/20 text-white'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -1327,6 +1362,44 @@ export const ExpenseCalculator: React.FC = () => {
                     <p className="text-[10px] text-purple-300/60">Gastos últimos 7 días</p>
                   </div>
                 </div>
+
+                {/* AVISO Y DESGLOSE AISLADO POR DIVISA (SI EXISTEN GASTOS EN MÁS DE UNA MONEDA) */}
+                {currencyStats.activeCurrenciesWithData.length > 1 && (
+                  <div className="p-3.5 rounded-2xl bg-black/40 border border-amber-400/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🌐</span>
+                      <div>
+                        <span className="text-xs font-bold text-amber-200 block">
+                          Totales independientes por divisa (sin mezclar monedas):
+                        </span>
+                        <span className="text-[11px] text-white/60 block">
+                          Cada moneda se calcula por separado sin conversiones ficticias.
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {currencyStats.activeCurrenciesWithData.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCurrency(c);
+                            setCurrencyInput(c);
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold font-mono flex items-center gap-1.5 border cursor-pointer transition-all ${
+                            selectedCurrency === c
+                              ? 'bg-amber-400 text-black border-amber-300 font-black scale-105'
+                              : 'bg-white/5 text-white/80 border-white/10 hover:bg-white/10'
+                          }`}
+                        >
+                          <span>{CURRENCY_CONFIG[c].flag}</span>
+                          <span>{c}:</span>
+                          <span>{formatMoney(currencyStats.summary[c].total, c)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* 2. SI ESTÁ EN MODO COMPARTIDO DÚO, MOSTRAR REPARTO Y BALANCE 50/50 */}
                 {expenseScope === 'shared' && (

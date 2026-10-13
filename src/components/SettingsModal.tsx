@@ -174,6 +174,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleRestoreFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
 
     if (file.name.toLowerCase().endsWith('.zip')) {
@@ -368,11 +369,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   {settings.customBgImage && (
                     <button
                       type="button"
-                      onClick={() => updateSettings({ customBgImage: undefined })}
-                      className="px-3 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                      onClick={() => {
+                        updateSettings({ customBgImage: undefined });
+                        setRestoreStatus('Foto retirada. Se conserva el color de fondo elegido.');
+                        setTimeout(() => setRestoreStatus(null), 3000);
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-400/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition-all"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Quitar Foto y Volver a Tema</span>
+                      <Trash2 className="w-3.5 h-3.5 text-rose-300" />
+                      <span>Quitar Fotografía (Conservar Color de Fondo)</span>
                     </button>
                   )}
                 </div>
@@ -1089,7 +1094,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </h4>
                 </div>
                 <p className="text-xs text-white/70 leading-relaxed">
-                  Exporta un archivo <strong>.zip</strong> comprimido o <strong>.happyduo</strong> cifrado a tu teléfono. Contiene todos tus diarios, notas de voz, grabaciones, recordatorios, chat y fotos para restaurarlos en cualquier momento.
+                  Exporta un archivo <strong>.zip</strong> con todos tus datos o una copia <strong>.happyduo</strong> codificada a tu teléfono. Contiene tus diarios, notas de voz, grabaciones, recordatorios, chat, gastos y balances, y ajustes para restaurarlos cuando desees.
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
@@ -1109,7 +1114,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     className="py-3 px-4 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-black text-xs flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                   >
                     <Download className="w-4 h-4 text-emerald-300" />
-                    <span>Copia Rápida (.happyduo)</span>
+                    <span>Copia Rápida Codificada (.happyduo)</span>
                   </button>
 
                   <button

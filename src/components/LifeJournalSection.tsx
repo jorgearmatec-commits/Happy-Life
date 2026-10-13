@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   BookOpen,
+  Book,
   Camera,
   Star,
   Sparkles,
@@ -51,6 +52,25 @@ export const LifeJournalSection: React.FC = () => {
   const [selectedParchmentDay, setSelectedParchmentDay] = useState<string | null>(null);
   const [showTimeBreakdown, setShowTimeBreakdown] = useState<boolean>(false);
   const [enlargedPhoto, setEnlargedPhoto] = useState<string | null>(null);
+
+  // Modo Libro de Lectura de Recuerdos
+  const [isReadingBookOpen, setIsReadingBookOpen] = useState(false);
+  const [readingPageIndex, setReadingPageIndex] = useState(0);
+  const [readingAuthorFilter, setReadingAuthorFilter] = useState<'all' | 'me' | 'partner'>('all');
+
+  const readingEntries = useMemo(() => {
+    let list = [...journal].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    if (readingAuthorFilter === 'me') {
+      list = list.filter((e) => e.author === 'me');
+    } else if (readingAuthorFilter === 'partner') {
+      list = list.filter((e) => e.author === 'partner');
+    }
+    return list;
+  }, [journal, readingAuthorFilter]);
+
+  const currentBookEntry = readingEntries[readingPageIndex] || null;
 
   const handleSaveEntry = (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,7 +179,21 @@ export const LifeJournalSection: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* BOTÓN PROMINENTE: LEER DIARIO DE VIDA TIPO PERGAMINO */}
+          <button
+            type="button"
+            onClick={() => {
+              setReadingPageIndex(0);
+              setIsReadingBookOpen(true);
+            }}
+            className="px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-600 via-amber-700 to-amber-800 hover:from-amber-500 hover:to-amber-700 border border-amber-400/50 text-white flex items-center gap-2 text-xs font-black shadow-lg shadow-amber-950/40 cursor-pointer transition-all active:scale-95"
+            title="Abrir vista de lectura pergamino del diario"
+          >
+            <Book className="w-4 h-4 text-amber-200" />
+            <span>Leer diario de vida 📖</span>
+          </button>
+
           {/* Icono pequeño Calendario del Diario */}
           <button
             type="button"
@@ -586,6 +620,192 @@ export const LifeJournalSection: React.FC = () => {
               className="px-5 py-2.5 rounded-xl btn-3d-rose text-white text-xs font-bold cursor-pointer"
             >
               Guardar Cambios
+            </button>
+          </div>
+        </div>
+      </ModalPortal>
+
+      {/* MODAL «LEER DIARIO DE VIDA» TIPO PERGAMINO */}
+      <ModalPortal
+        isOpen={isReadingBookOpen}
+        onClose={() => setIsReadingBookOpen(false)}
+        title="Libro de Recuerdos • Leer Diario de Vida 📖"
+        icon={<Book className="w-6 h-6 text-amber-400" />}
+        maxWidth="max-w-3xl"
+      >
+        <div className="space-y-4">
+          {/* Barra de Filtro de Autor y Navegación Rápida */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2 border-b border-[#b8985c]/30">
+            <div className="flex p-0.5 rounded-xl bg-black/40 border border-[#b8985c]/30 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setReadingAuthorFilter('all');
+                  setReadingPageIndex(0);
+                }}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                  readingAuthorFilter === 'all'
+                    ? 'bg-amber-500 text-black shadow-sm font-black'
+                    : 'text-white/70 hover:text-white'
+                }`}
+              >
+                Todas ({journal.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setReadingAuthorFilter('me');
+                  setReadingPageIndex(0);
+                }}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                  readingAuthorFilter === 'me'
+                    ? 'bg-amber-500 text-black shadow-sm font-black'
+                    : 'text-white/70 hover:text-white'
+                }`}
+              >
+                Solo {me.name} ({myEntries.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setReadingAuthorFilter('partner');
+                  setReadingPageIndex(0);
+                }}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                  readingAuthorFilter === 'partner'
+                    ? 'bg-amber-500 text-black shadow-sm font-black'
+                    : 'text-white/70 hover:text-white'
+                }`}
+              >
+                Solo {partner.name} ({partnerEntries.length})
+              </button>
+            </div>
+
+            {readingEntries.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-amber-300 font-mono">
+                  Página {readingPageIndex + 1} de {readingEntries.length}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* HOJA PERGAMINO REALISTA DE LECTURA */}
+          {readingEntries.length === 0 ? (
+            <div className="parchment-card p-8 sm:p-12 text-center space-y-3">
+              <span className="text-4xl">📜</span>
+              <h4 className="text-lg font-black font-heading text-[#3b2a1a]">
+                El libro de recuerdos está en blanco
+              </h4>
+              <p className="text-xs text-[#5e421e]/80 max-w-md mx-auto leading-relaxed">
+                Aún no hay entradas registradas para este filtro. Escriban sus pensamientos o vivencias en el diario para hojearlas aquí juntos.
+              </p>
+            </div>
+          ) : currentBookEntry && (
+            <div className="parchment-card p-6 sm:p-8 space-y-5 shadow-2xl relative border-2 border-[#b8985c]/60">
+              {/* Encabezado Calligráfico de la Hoja */}
+              <div className="flex items-start justify-between gap-3 border-b border-[#b8985c]/40 pb-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">
+                      {currentBookEntry.author === 'me' ? me.avatar || '🦊' : partner.avatar || '🐼'}
+                    </span>
+                    <span className="text-sm font-black text-[#3b2a1a] uppercase tracking-wider font-heading">
+                      {currentBookEntry.author === 'me' ? me.name : partner.name}
+                    </span>
+                    {currentBookEntry.isImportant && (
+                      <span className="px-2 py-0.5 rounded-full bg-amber-400 text-amber-950 font-black text-[10px] shadow-sm flex items-center gap-1">
+                        <Star className="w-3 h-3 fill-current" />
+                        <span>Destacado</span>
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#6b4c23] font-serif italic">
+                    {formatExactDate(currentBookEntry.createdAt)}
+                  </p>
+                </div>
+
+                <span className="text-xs font-black text-[#8d6736] font-mono px-2.5 py-1 rounded-xl bg-[#8d6736]/15 border border-[#8d6736]/30">
+                  #{readingEntries.length - readingPageIndex}
+                </span>
+              </div>
+
+              {/* Texto de la Entrada en Tipografía Pergamino */}
+              <div className="font-serif text-sm sm:text-base leading-relaxed text-[#2d1e12] whitespace-pre-line min-h-[120px] select-text">
+                {currentBookEntry.text}
+              </div>
+
+              {/* Fotografías adjuntas tipo Polaroid con clic para ampliar */}
+              {currentBookEntry.photos && currentBookEntry.photos.length > 0 && (
+                <div className="pt-3 border-t border-[#b8985c]/30 space-y-2">
+                  <div className="flex items-center justify-between text-[11px] text-[#6b4c23] font-bold">
+                    <span className="flex items-center gap-1.5">
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      <span>Fotografías del recuerdo ({currentBookEntry.photos.length}):</span>
+                    </span>
+                    <span className="text-[10px] text-[#8d6736] italic">Toca una foto para ampliarla 🔍</span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    {currentBookEntry.photos.map((photo, pIdx) => (
+                      <div
+                        key={pIdx}
+                        onClick={() => setEnlargedPhoto(photo)}
+                        className="p-1.5 bg-[#fdfbf7] rounded-xl border border-[#b8985c]/50 shadow-md hover:shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer group"
+                        title="Toca para ver la foto en pantalla completa"
+                      >
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden bg-black/10 relative">
+                          <img
+                            src={photo}
+                            alt="Fotografía del recuerdo"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                            <Eye className="w-5 h-5 drop-shadow" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Pie de Página con Controles de Pase de Hoja */}
+              <div className="flex items-center justify-between pt-4 border-t border-[#b8985c]/40 text-xs font-bold text-[#3b2a1a]">
+                <button
+                  type="button"
+                  disabled={readingPageIndex <= 0}
+                  onClick={() => setReadingPageIndex((prev) => Math.max(0, prev - 1))}
+                  className="px-4 py-2 rounded-xl bg-[#8d6736]/20 hover:bg-[#8d6736]/30 text-[#3b2a1a] flex items-center gap-1.5 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  <span>Anterior Hoja</span>
+                </button>
+
+                <span className="text-[11px] text-[#5e421e]/80 font-mono">
+                  Entrada {readingPageIndex + 1} de {readingEntries.length}
+                </span>
+
+                <button
+                  type="button"
+                  disabled={readingPageIndex >= readingEntries.length - 1}
+                  onClick={() => setReadingPageIndex((prev) => Math.min(readingEntries.length - 1, prev + 1))}
+                  className="px-4 py-2 rounded-xl bg-[#8d6736]/20 hover:bg-[#8d6736]/30 text-[#3b2a1a] flex items-center gap-1.5 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95"
+                >
+                  <span>Siguiente Hoja</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end pt-2">
+            <button
+              type="button"
+              onClick={() => setIsReadingBookOpen(false)}
+              className="px-6 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold cursor-pointer transition-colors"
+            >
+              Cerrar Libro
             </button>
           </div>
         </div>

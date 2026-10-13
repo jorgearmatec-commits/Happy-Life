@@ -308,36 +308,52 @@ const MainAppContent: React.FC = () => {
             }}
           >
             {settings.customBgImage ? (
-              settings.customBgFit === 'cover' ? (
-                <img
-                  src={settings.customBgImage}
-                  alt="Fondo Personalizado Fijo"
-                  className="w-full h-full object-cover object-center pointer-events-none select-none"
-                  style={{ width: '100vw', height: '100vh', objectFit: 'cover' }}
-                />
-              ) : settings.customBgFit === 'fill' ? (
-                <img
-                  src={settings.customBgImage}
-                  alt="Fondo Personalizado Fijo"
-                  className="w-full h-full object-fill object-center pointer-events-none select-none"
-                  style={{ width: '100vw', height: '100vh', objectFit: 'fill' }}
-                />
-              ) : (
-                /* Modo Contain por defecto: Foto 100% visible sin cortes con fondo ambiental difuso suave */
-                <div className="relative w-screen h-screen flex items-center justify-center overflow-hidden bg-black/95">
-                  <img
-                    src={settings.customBgImage}
-                    alt="Fondo ambiental difuso"
-                    className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-110 pointer-events-none"
-                  />
-                  <img
-                    src={settings.customBgImage}
-                    alt="Fondo Personalizado Completo Fijo"
-                    className="relative max-w-full max-h-full object-contain pointer-events-none select-none z-10"
-                    style={{ maxWidth: '100vw', maxHeight: '100vh', objectFit: 'contain' }}
-                  />
-                </div>
-              )
+              (() => {
+                const activeBgColor =
+                  settings.backgroundTheme?.startsWith('#')
+                    ? settings.backgroundTheme
+                    : settings.backgroundTheme?.startsWith('bg-[#')
+                    ? settings.backgroundTheme.replace('bg-[', '').replace(']', '')
+                    : '#090c12';
+
+                return settings.customBgFit === 'cover' ? (
+                  <div className="w-full h-full relative" style={{ backgroundColor: activeBgColor }}>
+                    <img
+                      src={settings.customBgImage}
+                      alt="Fondo Personalizado Fijo"
+                      className="w-full h-full object-cover object-center pointer-events-none select-none"
+                      style={{ width: '100vw', height: '100vh', objectFit: 'cover' }}
+                    />
+                  </div>
+                ) : settings.customBgFit === 'fill' ? (
+                  <div className="w-full h-full relative" style={{ backgroundColor: activeBgColor }}>
+                    <img
+                      src={settings.customBgImage}
+                      alt="Fondo Personalizado Fijo"
+                      className="w-full h-full object-fill object-center pointer-events-none select-none"
+                      style={{ width: '100vw', height: '100vh', objectFit: 'fill' }}
+                    />
+                  </div>
+                ) : (
+                  /* Modo Contain por defecto: Conserva el color de fondo elegido con foto completa y difuminado ambiental suave */
+                  <div
+                    className="relative w-screen h-screen flex items-center justify-center overflow-hidden"
+                    style={{ backgroundColor: activeBgColor }}
+                  >
+                    <img
+                      src={settings.customBgImage}
+                      alt="Fondo ambiental difuso"
+                      className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-35 scale-110 pointer-events-none"
+                    />
+                    <img
+                      src={settings.customBgImage}
+                      alt="Fondo Personalizado Completo Fijo"
+                      className="relative max-w-full max-h-full object-contain pointer-events-none select-none z-10"
+                      style={{ maxWidth: '100vw', maxHeight: '100vh', objectFit: 'contain' }}
+                    />
+                  </div>
+                );
+              })()
             ) : settings.backgroundTheme?.startsWith('#') || settings.backgroundTheme?.startsWith('bg-[#') ? (
               <div
                 className="w-full h-full"

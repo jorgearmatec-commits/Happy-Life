@@ -18,13 +18,8 @@ import { useApp } from '../context/AppContext';
 import { ModalPortal } from './ModalPortal';
 import { CameraCaptureModal } from './CameraCaptureModal';
 
-// Rich WhatsApp emoji categories
-const WHATSAPP_EMOJIS = [
-  '❤️', '💖', '💘', '💕', '🥰', '😘', '😍', '🥺', '🫂', '🔥', '✨', '🌹',
-  '☕', '🥑', '🍓', '🍰', '🍫', '🍷', '🍕', '🎉', '🌟', '💤', '🛌', '🐾',
-  '🐶', '🐱', '🐼', '🦊', '🌸', '🌻', '🌈', '☀️', '🌙', '⚡', '🧠', '🎧',
-  '💬', '😊', '😌', '🥱', '🤯', '😡', '😢', '😰', '🔋', '🛑', '💀', '🏃‍♀️'
-];
+import { EMOJI_CATEGORIES, EmojiCategory } from '../data/emojiCatalog';
+export { EMOJI_CATEGORIES, type EmojiCategory };
 
 export interface MiniChatModalProps {
   isOpen?: boolean;
@@ -60,6 +55,7 @@ export const MiniChatModal: React.FC<MiniChatModalProps> = ({
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [activeEmojiCategory, setActiveEmojiCategory] = useState(0);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   // Audio voice note inside chat
@@ -334,11 +330,30 @@ export const MiniChatModal: React.FC<MiniChatModalProps> = ({
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Full Emoji Picker Drawer (Incluye Recientes adentro para no robar espacio en pantalla) */}
+          {/* Full Emoji Picker Drawer Categorizado con más de 140 Emojis */}
           {showEmojiPicker && (
-            <div className="p-3 bg-[#1e293b] border-t border-white/10 max-h-48 overflow-y-auto space-y-2 shrink-0">
+            <div className="p-3 bg-[#1e293b] border-t border-white/10 max-h-56 overflow-y-auto space-y-2 shrink-0">
+              {/* Pestañas de categorías de Emojis */}
+              <div className="flex items-center gap-1 overflow-x-auto pb-1.5 border-b border-white/10 scrollbar-none">
+                {EMOJI_CATEGORIES.map((cat, idx) => (
+                  <button
+                    key={cat.name}
+                    type="button"
+                    onClick={() => setActiveEmojiCategory(idx)}
+                    className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 shrink-0 cursor-pointer ${
+                      activeEmojiCategory === idx
+                        ? 'bg-rose-500 text-white shadow-sm'
+                        : 'bg-white/5 hover:bg-white/10 text-white/70'
+                    }`}
+                  >
+                    <span>{cat.icon}</span>
+                    <span className="text-[11px]">{cat.name}</span>
+                  </button>
+                ))}
+              </div>
+
               {settings.recentEmojis.length > 0 && (
-                <div className="pb-2 border-b border-white/10">
+                <div className="pb-1.5 border-b border-white/10">
                   <span className="text-[10px] text-white/50 uppercase font-black tracking-wider block mb-1">
                     Últimos usados:
                   </span>
@@ -356,12 +371,13 @@ export const MiniChatModal: React.FC<MiniChatModalProps> = ({
                   </div>
                 </div>
               )}
+
               <div>
                 <span className="text-[10px] text-white/50 uppercase font-black tracking-wider block mb-1">
-                  Todos los emojis:
+                  {EMOJI_CATEGORIES[activeEmojiCategory]?.name || 'Emojis'}:
                 </span>
                 <div className="grid grid-cols-8 gap-2">
-                  {WHATSAPP_EMOJIS.map((em) => (
+                  {(EMOJI_CATEGORIES[activeEmojiCategory]?.emojis || []).map((em) => (
                     <button
                       key={em}
                       type="button"
