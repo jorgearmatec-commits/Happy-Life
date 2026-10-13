@@ -24,13 +24,14 @@ import {
 } from 'firebase/firestore';
 
 // Default / fallback Firebase configuration
+const env = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : (process.env || {});
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDummyKeyHappyLifeDuoSafeApp12345",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "happy-life-duo.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "happy-life-duo",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "happy-life-duo.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "201184583742",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:201184583742:web:happyduo9988"
+  apiKey: env.VITE_FIREBASE_API_KEY || "AIzaSyDummyKeyHappyLifeDuoSafeApp12345",
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || "happy-life-duo.firebaseapp.com",
+  projectId: env.VITE_FIREBASE_PROJECT_ID || "happy-life-duo",
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || "happy-life-duo.appspot.com",
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || "201184583742",
+  appId: env.VITE_FIREBASE_APP_ID || "1:201184583742:web:happyduo9988"
 };
 
 let app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);

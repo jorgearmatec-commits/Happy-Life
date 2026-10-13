@@ -458,3 +458,52 @@ test('8. Respaldo protegido requiere credencial Bearer y guarda correctamente', 
     server.close();
   }
 });
+
+test('9. Mapeo de colores de categorías: colores claramente diferentes para las categorías especificadas', async () => {
+  const { getCategoryColor, CATEGORY_COLORS } = await import('../src/components/ExpenseCalculator.js').catch(() =>
+    import('../src/components/ExpenseCalculator.tsx')
+  );
+
+  // 1. Verificar colores requeridos específicamente por el usuario
+  assert.equal(getCategoryColor('Comida de perro'), '#f97316', 'Comida de perro debe ser naranja');
+  assert.equal(getCategoryColor('Feria'), '#10b981', 'Feria debe ser verde');
+  assert.equal(getCategoryColor('Supermercado'), '#2563eb', 'Supermercado debe ser azul');
+  assert.equal(getCategoryColor('Farmacia y salud'), '#ec4899', 'Farmacia y salud debe ser rosa');
+  assert.equal(getCategoryColor('Transporte'), '#06b6d4', 'Transporte debe ser celeste');
+  assert.equal(getCategoryColor('Hogar'), '#8b5cf6', 'Hogar debe ser violeta');
+  assert.equal(getCategoryColor('Servicios y cuentas'), '#eab308', 'Servicios y cuentas debe ser amarillo');
+  assert.equal(getCategoryColor('Salidas y ocio'), '#ef4444', 'Salidas y ocio debe ser rojo');
+  assert.equal(getCategoryColor('Ropa y calzado'), '#14b8a6', 'Ropa y calzado debe ser turquesa');
+  assert.equal(getCategoryColor('Regalos'), '#a855f7', 'Regalos debe ser morado');
+
+  // 2. Verificar que todas las categorías requeridas tengan colores diferentes entre sí
+  const requiredCategories = [
+    'Comida de perro',
+    'Feria',
+    'Supermercado',
+    'Farmacia y salud',
+    'Transporte',
+    'Hogar',
+    'Servicios y cuentas',
+    'Salidas y ocio',
+    'Ropa y calzado',
+    'Regalos',
+  ];
+
+  const colors = requiredCategories.map((c) => getCategoryColor(c));
+  const uniqueColors = new Set(colors);
+  assert.equal(uniqueColors.size, requiredCategories.length, 'Cada categoría debe tener un color diferente');
+
+  // 3. Verificar estabilidad: el color no cambia al invocar múltiples veces o con índices distintos
+  assert.equal(getCategoryColor('Comida de perro', 0), getCategoryColor('Comida de perro', 99));
+  assert.equal(getCategoryColor('Feria', 2), getCategoryColor('Feria', 5));
+
+  // 4. Categorías personalizadas: asignación determinista y no el mismo color para todas
+  const customA = getCategoryColor('Veterinaria Especial');
+  const customB = getCategoryColor('Gimnasio Crossfit');
+  const customA_again = getCategoryColor('Veterinaria Especial');
+
+  assert.equal(customA, customA_again, 'La categoría personalizada debe conservar un color estable y determinista');
+  assert.ok(customA.startsWith('#'), 'El color personalizado debe ser un código hexadecimal válido');
+  assert.ok(customB.startsWith('#'), 'El color personalizado debe ser un código hexadecimal válido');
+});

@@ -53,24 +53,26 @@ const CURRENCY_CONFIG: Record<
   USD: { label: 'Dólares USD', symbol: 'US$', flag: '🇺🇸', locale: 'en-US' },
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
-  'Comida de perro': '#f59e0b', // amber-500
-  'Feria': '#10b981', // emerald-500
-  'Supermercado': '#3b82f6', // blue-500
-  'Farmacia y salud': '#8b5cf6', // purple-500
-  'Salidas y ocio': '#ec4899', // pink-500
-  'Servicios y cuentas': '#06b6d4', // cyan-500
-  'Transporte': '#f97316', // orange-500
-  'Mascotas': '#eab308', // yellow-500
-  'Regalos': '#f43f5e', // rose-500
-  'Educación': '#6366f1', // indigo-500
-  'Ropa y calzado': '#14b8a6', // teal-500
-  'Ahorro': '#84cc16', // lime-500
-  'Hogar': '#a855f7', // violet-500
-  'Otro gasto': '#64748b', // slate-500
+export const CATEGORY_COLORS: Record<string, string> = {
+  // Requisitos específicos de usuario
+  'Comida de perro': '#f97316', // naranja (orange-500)
+  'Feria': '#10b981', // verde (emerald-500)
+  'Supermercado': '#2563eb', // azul (blue-600)
+  'Farmacia y salud': '#ec4899', // rosa (pink-500)
+  'Transporte': '#06b6d4', // celeste / cyan (cyan-500)
+  'Hogar': '#8b5cf6', // violeta (purple-500)
+  'Servicios y cuentas': '#eab308', // amarillo (yellow-500)
+  'Salidas y ocio': '#ef4444', // rojo (red-500)
+  'Ropa y calzado': '#14b8a6', // turquesa / teal (teal-500)
+  'Regalos': '#a855f7', // morado (violet-500)
+  // Categorías complementarias conocidas
+  'Mascotas': '#fb923c', // naranja claro (orange-400)
+  'Educación': '#3b82f6', // azul índigo (indigo-500)
+  'Ahorro': '#84cc16', // lima brillante (lime-500)
+  'Otro gasto': '#64748b', // pizarra neutro (slate-500)
 };
 
-const CATEGORY_ICONS: Record<string, string> = {
+export const CATEGORY_ICONS: Record<string, string> = {
   'Comida de perro': '🐕',
   'Feria': '🥬',
   'Supermercado': '🛒',
@@ -87,26 +89,57 @@ const CATEGORY_ICONS: Record<string, string> = {
   'Otro gasto': '🧾',
 };
 
-const FALLBACK_PALETTE = [
-  '#f59e0b',
-  '#10b981',
-  '#3b82f6',
-  '#ec4899',
-  '#8b5cf6',
-  '#06b6d4',
-  '#f97316',
-  '#84cc16',
-  '#e11d48',
-  '#14b8a6',
-  '#6366f1',
-  '#eab308',
-  '#d946ef',
-  '#0ea5e9',
+// Paleta armónica, contrastada y visualmente separada sobre fondo oscuro
+export const FALLBACK_PALETTE = [
+  '#f97316', // naranja vibrante
+  '#10b981', // verde esmeralda
+  '#2563eb', // azul real
+  '#ec4899', // rosa intenso
+  '#06b6d4', // celeste / cyan
+  '#8b5cf6', // violeta
+  '#eab308', // amarillo dorado
+  '#ef4444', // rojo vivo
+  '#14b8a6', // turquesa / teal
+  '#a855f7', // morado
+  '#84cc16', // lima
+  '#f43f5e', // coral / rose
+  '#0284c7', // azul cielo oscuro
+  '#d946ef', // fucsia
+  '#38bdf8', // celeste claro
+  '#f59e0b', // ámbar
+  '#6366f1', // índigo
+  '#4ade80', // verde menta
 ];
 
-const getCategoryColor = (category: string, index: number = 0): string => {
-  if (CATEGORY_COLORS[category]) return CATEGORY_COLORS[category];
-  return FALLBACK_PALETTE[index % FALLBACK_PALETTE.length];
+/**
+ * Asigna deterministamente un color estable para cualquier categoría.
+ * No depende de la posición ni del orden en el array:
+ * 1. Categorías conocidas -> color oficial fijado.
+ * 2. Categorías personalizadas -> hash determinista del nombre sobre la paleta armónica.
+ */
+export const getCategoryColor = (category: string, _index?: number): string => {
+  const trimmed = (category || '').trim();
+  if (CATEGORY_COLORS[trimmed]) {
+    return CATEGORY_COLORS[trimmed];
+  }
+
+  // Comprobar coincidencia sin mayúsculas/minúsculas para nombres equivalentes
+  const lower = trimmed.toLowerCase();
+  for (const [key, color] of Object.entries(CATEGORY_COLORS)) {
+    if (key.toLowerCase() === lower) {
+      return color;
+    }
+  }
+
+  // Hash determinista del nombre de la categoría (función hash DJB2 modificada)
+  let hash = 0;
+  for (let i = 0; i < trimmed.length; i++) {
+    hash = (hash << 5) - hash + trimmed.charCodeAt(i);
+    hash |= 0; // Convertir a entero de 32 bits
+  }
+
+  const paletteIndex = Math.abs(hash) % FALLBACK_PALETTE.length;
+  return FALLBACK_PALETTE[paletteIndex];
 };
 
 const getCategoryIcon = (category: string): string => {
@@ -680,7 +713,7 @@ export const ExpenseCalculator: React.FC = () => {
           category: item.category,
           amount: amt,
           percentage: pct,
-          color: getCategoryColor(item.category, idx),
+          color: getCategoryColor(item.category),
           icon: getCategoryIcon(item.category),
         };
       })
@@ -1399,6 +1432,8 @@ export const ExpenseCalculator: React.FC = () => {
 
                         const pct = baseTotal > 0 ? (displayAmt / baseTotal) * 100 : 0;
 
+                        const catColor = getCategoryColor(item.category);
+
                         return (
                           <div
                             key={item.category}
@@ -1406,6 +1441,10 @@ export const ExpenseCalculator: React.FC = () => {
                           >
                             <div className="flex items-center justify-between text-xs font-bold">
                               <span className="text-white flex items-center gap-1.5 truncate">
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm"
+                                  style={{ backgroundColor: catColor }}
+                                />
                                 <span>{getCategoryIcon(item.category)}</span>
                                 <span className="truncate">{item.category}</span>
                               </span>
@@ -1416,8 +1455,12 @@ export const ExpenseCalculator: React.FC = () => {
 
                             <div className="w-full h-2 rounded-full bg-black/50 overflow-hidden">
                               <div
-                                className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full transition-all"
-                                style={{ width: `${Math.min(pct, 100)}%` }}
+                                className="h-full rounded-full transition-all"
+                                style={{
+                                  width: `${Math.min(pct, 100)}%`,
+                                  backgroundColor: catColor,
+                                  boxShadow: `0 0 8px ${catColor}60`,
+                                }}
                               />
                             </div>
 
