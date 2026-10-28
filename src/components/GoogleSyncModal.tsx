@@ -20,7 +20,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { loginWithGoogle } from '../firebase';
+import { loginWithGoogle, loginWithQuickAccount } from '../firebase';
 import { playTone } from './AudioSynthesizer';
 
 interface GoogleSyncModalProps {
@@ -145,6 +145,28 @@ export const GoogleSyncModal: React.FC<GoogleSyncModalProps> = ({
           err?.message || 'No se pudo conectar con el servicio de autenticación de Google.'
         );
       }
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  // INICIO DE SESIÓN RÁPIDO PARA ANDROID (Sin restricciones de Google WebView)
+  const handleQuickLogin = async () => {
+    setIsAuthenticating(true);
+    setAuthError(null);
+    setStatusMessage(null);
+
+    try {
+      const activeName = me?.name || 'Usuario Happy Life Duo';
+      const user = await loginWithQuickAccount(activeName);
+      if (user) {
+        setFirebaseUser(user);
+        try { playTone('cathedral_bells'); } catch {}
+        try { trigger3DConfetti(); } catch {}
+        setStatusMessage(`✓ Sesión activa como ${activeName}. Respaldo en la nube activado.`);
+      }
+    } catch (err: any) {
+      setAuthError('No se pudo activar el acceso rápido: ' + (err?.message || 'Error desconocido'));
     } finally {
       setIsAuthenticating(false);
     }
@@ -459,6 +481,24 @@ export const GoogleSyncModal: React.FC<GoogleSyncModalProps> = ({
                       ? 'Abriendo Google OAuth...'
                       : 'Continuar con Google (OAuth Oficial)'}
                   </span>
+                </button>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <div className="h-px bg-white/10 flex-1" />
+                  <span className="text-[10px] text-white/50 uppercase tracking-wider font-bold">
+                    O en Android APK
+                  </span>
+                  <div className="h-px bg-white/10 flex-1" />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleQuickLogin}
+                  disabled={isAuthenticating}
+                  className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-98 transition-all disabled:opacity-50"
+                >
+                  <Sparkles className="w-4 h-4 text-emerald-200" />
+                  <span>Acceso Rápido como {me?.name || 'Pareja'} (Ideal en Android)</span>
                 </button>
               </div>
             )}

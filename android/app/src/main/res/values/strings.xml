@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Happy Life Duo</string>
+    <string name="title_activity_main">Happy Life Duo</string>
+    <string name="package_name">com.happylifeduo.app</string>
+    <string name="custom_url_scheme">com.happylifeduo.app</string>
+</resources>

@@ -48,6 +48,7 @@ export interface MusicTrack {
   duration?: string;
   genre?: string;
   lyrics?: string;
+  previewUrl?: string;
 }
 
 export interface VideoItem {
@@ -493,6 +494,7 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
         albumArt: r.thumbnail,
         duration: r.duration,
         genre: r.genre || 'YouTube Music',
+        previewUrl: r.previewUrl,
       }));
       setYtmSearchResults(mapped);
     } catch (err) {
@@ -1919,20 +1921,32 @@ export const BodyDoublingModal: React.FC<BodyDoublingModalProps> = ({
         className="hidden"
       />
 
-      {/* REPRODUCTOR PERSISTENTE CONTINUO EN SEGUNDO PLANO DE YOUTUBE */}
+      {/* REPRODUCTOR PERSISTENTE CONTINUO EN SEGUNDO PLANO DE YOUTUBE Y AUDIO */}
       {((isPlayingYtm && activeTrack?.ytId) || (isPlayingYtn && activeVideo?.ytId)) && (
         <div
-          className="fixed -bottom-96 -right-96 w-1 h-1 opacity-0 pointer-events-none overflow-hidden"
+          className="fixed bottom-1 right-1 w-[4px] h-[4px] opacity-10 pointer-events-none overflow-hidden z-0"
           aria-hidden="true"
         >
-          <iframe
-            key={isPlayingYtm ? `ytm_${activeTrack.ytId}` : `ytn_${activeVideo.ytId}`}
-            title="Background YouTube Audio"
-            src={`https://www.youtube-nocookie.com/embed/${
-              isPlayingYtm ? activeTrack.ytId : activeVideo.ytId
-            }?autoplay=1&enablejsapi=1&playsinline=1`}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          />
+          {activeTrack?.previewUrl && isPlayingYtm ? (
+            <audio
+              key={`preview_${activeTrack.id}`}
+              src={activeTrack.previewUrl}
+              autoPlay
+              controls={false}
+              onEnded={handleNextTrack}
+            />
+          ) : (
+            <iframe
+              key={isPlayingYtm ? `ytm_${activeTrack.ytId}` : `ytn_${activeVideo.ytId}`}
+              title="Background YouTube Audio"
+              src={`https://www.youtube.com/embed/${
+                isPlayingYtm ? activeTrack.ytId : activeVideo.ytId
+              }?autoplay=1&enablejsapi=1&playsinline=1&origin=${encodeURIComponent(
+                typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://happy-life-duo.ai.studio'
+              )}`}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            />
+          )}
         </div>
       )}
 

@@ -1,0 +1,25 @@
+{
+	"appId": "com.happylifeduo.app",
+	"appName": "Happy Life Duo",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https",
+		"cleartext": true,
+		"allowNavigation": [
+			"happy-life-duo.ai.studio",
+			"ais-dev-w7kgaj7ihor4o4lrhiirqy-201184583742.us-east1.run.app",
+			"ais-pre-w7kgaj7ihor4o4lrhiirqy-201184583742.us-east1.run.app",
+			"*.googleapis.com",
+			"*.google.com",
+			"*.gstatic.com",
+			"*.open-meteo.com",
+			"*.googlevideo.com",
+			"*.youtube.com"
+		]
+	},
+	"plugins": {
+		"CapacitorHttp": {
+			"enabled": true
+		}
+	}
+}

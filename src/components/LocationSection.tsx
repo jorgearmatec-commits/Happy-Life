@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ModalPortal } from './ModalPortal';
+import { DuoGoogleMap } from './DuoGoogleMap';
 
 export const LocationSection: React.FC = () => {
   const {
@@ -266,118 +267,123 @@ export const LocationSection: React.FC = () => {
           </div>
         </div>
 
-        {/* MINI VENTANA GOOGLE MAPS QUE SE ABRE ABAJO Y SE PUEDE EXPANDIR */}
-        {settings.realTimeLocationActive && (
-          <div className="rounded-3xl overflow-hidden border-2 border-[#1a4fff]/40 bg-black/60 shadow-2xl space-y-3 p-3.5">
-            <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs">
-              {/* Selector de objetivo del radar (Pareja vs Yo) */}
-              <div className="flex p-0.5 rounded-xl bg-white/10">
-                <button
-                  type="button"
-                  onClick={() => setMapTarget('partner')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    mapTarget === 'partner'
-                      ? 'bg-[#1a4fff] text-white shadow-sm ring-1 ring-blue-300'
-                      : 'text-white/60 hover:text-white'
-                  }`}
-                >
-                  📍 Radar Pareja ({currentDisplayPartner.name || 'Pareja'})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMapTarget('me')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    mapTarget === 'me'
-                      ? 'bg-[#1a4fff] text-white shadow-sm ring-1 ring-blue-300'
-                      : 'text-white/60 hover:text-white'
-                  }`}
-                >
-                  🎯 Mi GPS en Vivo
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleSendExactLocation}
-                  disabled={isLoadingGps}
-                  className="flex items-center gap-1 text-[11px] font-bold text-blue-200 bg-blue-500/20 hover:bg-blue-500/30 px-2.5 py-1 rounded-xl cursor-pointer border border-blue-400/30"
-                  title="Actualizar posición GPS ahora"
-                >
-                  <Sparkles className="w-3 h-3 text-blue-300" />
-                  <span>{isLoadingGps ? 'Actualizando...' : 'Refrescar GPS'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsMapExpanded(true)}
-                  className="flex items-center gap-1 text-[11px] font-bold text-white/80 hover:text-white bg-white/10 px-2.5 py-1 rounded-xl cursor-pointer"
-                >
-                  <Maximize2 className="w-3.5 h-3.5" />
-                  <span>Expandir</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Selector de intervalo de actualización (Optimización de Batería y RAM) */}
-            <div className="p-2.5 rounded-2xl bg-white/5 border border-white/10 space-y-1.5">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-white/70 font-semibold">Intervalo de actualización optimizado:</span>
-                <span className="text-blue-300 font-bold font-mono">
-                  Cada {settings.locationIntervalSecs || 30}s
-                </span>
-              </div>
-              <div className="grid grid-cols-4 gap-1.5">
-                {[
-                  { secs: 15, label: '15s (Rápido)' },
-                  { secs: 30, label: '30s (Óptimo)' },
-                  { secs: 60, label: '1 min' },
-                  { secs: 120, label: '2 min (Batería)' },
-                ].map((item) => {
-                  const isActive = (settings.locationIntervalSecs || 30) === item.secs;
-                  return (
-                    <button
-                      key={item.secs}
-                      type="button"
-                      onClick={() => updateSettings({ locationIntervalSecs: item.secs })}
-                      className={`py-1 rounded-xl text-[10px] font-bold transition-all cursor-pointer ${
-                        isActive
-                          ? 'bg-[#1a4fff] text-white shadow-sm ring-1 ring-blue-300'
-                          : 'bg-white/10 hover:bg-white/20 text-white/70'
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-[9px] text-white/50 text-center">
-                💡 30 segundos recomendado para teléfonos gama baja (2-4GB RAM) y ahorro de batería.
-              </p>
-            </div>
-
-            <div className="rounded-2xl overflow-hidden aspect-video max-h-56 bg-slate-900 border border-white/10 relative shadow-inner">
-              <iframe
-                title="Google Maps Miniatura"
-                src={`https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`}
-                className="w-full h-full border-0"
-                loading="lazy"
-              />
-            </div>
-
-            <div className="flex items-center justify-between px-1 text-[11px] text-white/60">
-              <span>Coordenadas: {lat.toFixed(4)}, {lng.toFixed(4)}</span>
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-blue-300 hover:text-blue-200 font-bold flex items-center gap-1"
+        {/* RADAR INTERACTIVO GOOGLE MAPS PLATFORM */}
+        <div className="rounded-3xl overflow-hidden border-2 border-[#1a4fff]/40 bg-black/60 shadow-2xl space-y-3 p-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs">
+            {/* Selector de objetivo del radar (Pareja vs Yo) */}
+            <div className="flex p-0.5 rounded-xl bg-white/10">
+              <button
+                type="button"
+                onClick={() => setMapTarget('partner')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  mapTarget === 'partner'
+                    ? 'bg-[#1a4fff] text-white shadow-sm ring-1 ring-blue-300'
+                    : 'text-white/60 hover:text-white'
+                }`}
               >
-                <span>Abrir en Google Maps</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
+                📍 Radar Pareja ({currentDisplayPartner.name || 'Pareja'})
+              </button>
+              <button
+                type="button"
+                onClick={() => setMapTarget('me')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  mapTarget === 'me'
+                    ? 'bg-[#1a4fff] text-white shadow-sm ring-1 ring-blue-300'
+                    : 'text-white/60 hover:text-white'
+                }`}
+              >
+                🎯 Mi GPS en Vivo
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSendExactLocation}
+                disabled={isLoadingGps}
+                className="flex items-center gap-1 text-[11px] font-bold text-blue-200 bg-blue-500/20 hover:bg-blue-500/30 px-2.5 py-1 rounded-xl cursor-pointer border border-blue-400/30"
+                title="Actualizar posición GPS ahora"
+              >
+                <Sparkles className="w-3 h-3 text-blue-300" />
+                <span>{isLoadingGps ? 'Actualizando...' : 'Refrescar GPS'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsMapExpanded(true)}
+                className="flex items-center gap-1 text-[11px] font-bold text-white/80 hover:text-white bg-white/10 px-2.5 py-1 rounded-xl cursor-pointer"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>Expandir</span>
+              </button>
             </div>
           </div>
-        )}
+
+          {/* Selector de intervalo de actualización (Optimización de Batería y RAM) */}
+          <div className="p-2.5 rounded-2xl bg-white/5 border border-white/10 space-y-1.5">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-white/70 font-semibold">Intervalo de actualización optimizado:</span>
+              <span className="text-blue-300 font-bold font-mono">
+                Cada {settings.locationIntervalSecs || 30}s
+              </span>
+            </div>
+            <div className="grid grid-cols-4 gap-1.5">
+              {[
+                { secs: 15, label: '15s (Rápido)' },
+                { secs: 30, label: '30s (Óptimo)' },
+                { secs: 60, label: '1 min' },
+                { secs: 120, label: '2 min (Batería)' },
+              ].map((item) => {
+                const isActive = (settings.locationIntervalSecs || 30) === item.secs;
+                return (
+                  <button
+                    key={item.secs}
+                    type="button"
+                    onClick={() => updateSettings({ locationIntervalSecs: item.secs })}
+                    className={`py-1 rounded-xl text-[10px] font-bold transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-[#1a4fff] text-white shadow-sm ring-1 ring-blue-300'
+                        : 'bg-white/10 hover:bg-white/20 text-white/70'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[9px] text-white/50 text-center">
+              💡 30 segundos recomendado para teléfonos gama baja (2-4GB RAM) y ahorro de batería.
+            </p>
+          </div>
+
+          {/* Mapa nativo interactivo Google Maps Platform */}
+          <DuoGoogleMap
+            myLocation={currentDisplayMe.lastLocation}
+            partnerLocation={currentDisplayPartner.lastLocation}
+            myName={currentDisplayMe.name || 'Yo'}
+            myAvatar={currentDisplayMe.avatar || '🎯'}
+            partnerName={currentDisplayPartner.name || 'Pareja'}
+            partnerAvatar={currentDisplayPartner.avatar || '💖'}
+            myStatus={currentDisplayMe.status}
+            partnerStatus={currentDisplayPartner.status}
+            isRealTimeActive={settings.realTimeLocationActive}
+            onRefreshGps={handleSendExactLocation}
+            isLoadingGps={isLoadingGps}
+            targetFocus={mapTarget === 'partner' ? 'partner' : 'me'}
+          />
+
+          <div className="flex items-center justify-between px-1 text-[11px] text-white/60">
+            <span>Coordenadas: {lat.toFixed(4)}, {lng.toFixed(4)}</span>
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-blue-300 hover:text-blue-200 font-bold flex items-center gap-1"
+            >
+              <span>Abrir en Google Maps</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+        </div>
 
         {statusMessage && (
           <div className="p-3 rounded-2xl bg-[#1a4fff]/20 border border-[#1a4fff]/40 text-blue-200 text-xs text-center font-bold shadow-md">
@@ -448,14 +454,20 @@ export const LocationSection: React.FC = () => {
         maxWidth="max-w-4xl"
       >
         <div className="space-y-4">
-          <div className="aspect-video w-full rounded-3xl overflow-hidden border border-white/20 bg-black shadow-2xl">
-            <iframe
-              title="Google Maps Grande"
-              src={`https://maps.google.com/maps?q=${lat},${lng}&z=16&output=embed`}
-              className="w-full h-full border-0"
-              loading="lazy"
-            />
-          </div>
+          <DuoGoogleMap
+            myLocation={currentDisplayMe.lastLocation}
+            partnerLocation={currentDisplayPartner.lastLocation}
+            myName={currentDisplayMe.name || 'Yo'}
+            myAvatar={currentDisplayMe.avatar || '🎯'}
+            partnerName={currentDisplayPartner.name || 'Pareja'}
+            partnerAvatar={currentDisplayPartner.avatar || '💖'}
+            myStatus={currentDisplayMe.status}
+            partnerStatus={currentDisplayPartner.status}
+            isRealTimeActive={settings.realTimeLocationActive}
+            onRefreshGps={handleSendExactLocation}
+            isLoadingGps={isLoadingGps}
+            targetFocus="both"
+          />
           <div className="flex justify-between items-center text-xs text-white/80">
             <span>Coordenadas exactas: {lat.toFixed(5)}, {lng.toFixed(5)}</span>
             <button

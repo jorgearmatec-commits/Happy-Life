@@ -6,9 +6,10 @@ import { useApp } from '../context/AppContext';
 interface HeaderProps {
   onOpenSettings: () => void;
   onOpenExit?: () => void;
+  onOpenGemini?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenExit }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenExit, onOpenGemini }) => {
   const { me, partner, activeRole, firebaseUser, handleGoogleLogin, settings } = useApp();
 
   return (
@@ -40,8 +41,24 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenExit }) =>
           </div>
         </div>
 
-        {/* Right Actions: Sincronización Google Visible en Android/Móvil, Ajustes, Salir */}
+        {/* Right Actions: Pregúntale a Gemini, Sincronización Google, Ajustes, Salir */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* BOTÓN RESTAURADO ORIGINAL: «Pregúntale a Gemini» */}
+          {onOpenGemini && (
+            <button
+              type="button"
+              onClick={onOpenGemini}
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-2xl text-xs font-black cursor-pointer shadow-md active:scale-95 transition-all border bg-gradient-to-r from-purple-500/20 via-indigo-500/20 to-sky-500/20 hover:from-purple-500/30 hover:via-indigo-500/30 hover:to-sky-500/30 text-purple-200 border-purple-400/40"
+              title="Pregúntale a Gemini"
+              aria-label="Pregúntale a Gemini"
+            >
+              <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-300 animate-pulse shrink-0" />
+              <span className="hidden xs:inline sm:inline whitespace-nowrap">
+                Pregúntale a Gemini
+              </span>
+            </button>
+          )}
+
           {/* BOTÓN VISIBLE DE SINCRONIZACIÓN CON GOOGLE (Móvil y Escritorio) */}
           <button
             type="button"

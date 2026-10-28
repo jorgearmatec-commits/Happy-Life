@@ -1,0 +1,106 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. GLOBAL SAFETY NET (DEFAULT-DENY)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. HELPER FUNCTIONS
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isCoupleMember(coupleId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/couples/$(coupleId)) &&
+        request.auth.uid in get(/databases/$(database)/documents/couples/$(coupleId)).data.members;
+    }
+
+    function isValidCoupleRoom(data) {
+      return data.duoPairCode is string &&
+        data.duoPairCode.size() > 0 && data.duoPairCode.size() <= 20 &&
+        data.members is list &&
+        data.members.size() > 0 && data.members.size() <= 2 &&
+        request.auth.uid in data.members;
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId is string &&
+        data.userId == request.auth.uid &&
+        data.name is string &&
+        data.name.size() > 0 && data.name.size() <= 50 &&
+        data.avatar is string &&
+        data.avatar.size() > 0 && data.avatar.size() <= 10 &&
+        (!('status' in data) || (data.status is string && data.status.size() <= 100)) &&
+        (!('statusEmoji' in data) || (data.statusEmoji is string && data.statusEmoji.size() <= 10)) &&
+        (!('feeling' in data) || (data.feeling is string && data.feeling.size() <= 50)) &&
+        (!('feelingEmoji' in data) || (data.feelingEmoji is string && data.feelingEmoji.size() <= 10)) &&
+        (!('batteryLevel' in data) || (data.batteryLevel is number && data.batteryLevel >= 0 && data.batteryLevel <= 100)) &&
+        (!('isCharging' in data) || (data.isCharging is bool));
+    }
+
+    function isValidExpense(data) {
+      return data.id is string &&
+        data.id.size() > 0 && data.id.size() <= 128 &&
+        data.amount is number &&
+        data.amount >= 0 &&
+        data.currency is string &&
+        (data.currency == 'CLP' || data.currency == 'ARS' || data.currency == 'USD') &&
+        data.category is string &&
+        data.category.size() > 0 && data.category.size() <= 60 &&
+        data.date is string &&
+        data.date.size() >= 8 && data.date.size() <= 30 &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 200)) &&
+        (!('creatorName' in data) || (data.creatorName is string && data.creatorName.size() <= 50));
+    }
+
+    // 3. COLECCIÓN DE TEST (DIAGNÓSTICO DE CONEXIÓN INICIAL)
+    match /test/{testId} {
+      allow get: if true;
+    }
+
+    // 4. COLECCIÓN PRINCIPAL: SALAS DE PAREJA
+    match /couples/{coupleId} {
+      allow get: if isSignedIn() && isValidId(coupleId) && (request.auth.uid in resource.data.members);
+      allow create: if isSignedIn() && isValidId(coupleId) && isValidCoupleRoom(incoming());
+      allow update: if isSignedIn() && isValidId(coupleId) && (request.auth.uid in resource.data.members) && isValidCoupleRoom(incoming());
+      allow delete: if false;
+
+      // 4.1 SUBCOLECCIÓN DE PERFILES (PROPIEDAD EXCLUSIVA POR INTEGRANTE)
+      match /profiles/{memberId} {
+        allow get, list: if isCoupleMember(coupleId);
+        allow create, update: if isValidId(memberId) &&
+          memberId == request.auth.uid &&
+          isCoupleMember(coupleId) &&
+          isValidUserProfile(incoming());
+        allow delete: if false;
+      }
+
+      // 4.2 SUBCOLECCIÓN DE GASTOS COMPARTIDOS
+      match /expenses/{expenseId} {
+        allow get, list: if isCoupleMember(coupleId);
+        allow create: if isValidId(expenseId) &&
+          isCoupleMember(coupleId) &&
+          isValidExpense(incoming());
+        allow update: if isValidId(expenseId) &&
+          isCoupleMember(coupleId) &&
+          isValidExpense(incoming());
+        allow delete: if isCoupleMember(coupleId);
+      }
+    }
+  }
+}

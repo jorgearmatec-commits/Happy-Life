@@ -18,6 +18,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { SubmenuNav } from './components/SubmenuNav';
 import { SimpleNavigator } from './components/SimpleNavigator';
 import { GoogleSyncModal } from './components/GoogleSyncModal';
+import { AskGeminiModal } from './components/AskGeminiModal';
 import { Lock, Heart, Sparkles, X, Brain, Headphones, LogOut, Moon, Sun } from 'lucide-react';
 
 const MainAppContent: React.FC = () => {
@@ -25,6 +26,15 @@ const MainAppContent: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMiniChatOpen, setIsMiniChatOpen] = useState(false);
   const [isBodyDoublingOpen, setIsBodyDoublingOpen] = useState(false);
+  const [isGeminiModalOpen, setIsGeminiModalOpen] = useState(false);
+  const [quotaExceeded, setQuotaExceeded] = useState(false);
+
+  // Listener para cuota de Google Maps Platform
+  useEffect(() => {
+    const handler = () => setQuotaExceeded(true);
+    window.addEventListener('gmp-quota-exceeded', handler);
+    return () => window.removeEventListener('gmp-quota-exceeded', handler);
+  }, []);
 
   // Exit dialog & App closed states
   const [isExitOpen, setIsExitOpen] = useState(false);
@@ -463,10 +473,29 @@ const MainAppContent: React.FC = () => {
           document.body
         )}
 
+      {/* Banner de cuota Google Maps Platform (Requerido por GMP) */}
+      {quotaExceeded && (
+        <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
+          <span>
+            Google Maps Platform quota reached. If you are the app owner, visit{' '}
+            <a
+              href="https://developers.google.com/maps/ai/ai-studio?utm_campaign=gmp_mcp_codeassist_v1_aistudio#quota_exceeded_errors"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-semibold text-amber-950 hover:text-amber-800"
+            >
+              maps developer site
+            </a>{' '}
+            for instructions to update your account.
+          </span>
+        </div>
+      )}
+
       {/* Header Sticky removido: Desaparece al bajar por la app naturalmente */}
       <Header
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenExit={() => setIsExitOpen(true)}
+        onOpenGemini={() => setIsGeminiModalOpen(true)}
       />
 
       {/* Contenedor Principal (SIN DESLIZAMIENTO TÁCTIL LATERAL QUE CAMBIE LOS MENÚS) */}
@@ -549,6 +578,12 @@ const MainAppContent: React.FC = () => {
       <GoogleSyncModal
         isOpen={isGoogleModalOpen}
         onClose={closeGoogleModal}
+      />
+
+      {/* Modal de Miniayuda Inteligente: Pregúntale a Gemini */}
+      <AskGeminiModal
+        isOpen={isGeminiModalOpen}
+        onClose={() => setIsGeminiModalOpen(false)}
       />
 
       {/* MODAL DE DESPEDIDA CON CONTEO REGRESIVO AL SALIR DE LA APP */}

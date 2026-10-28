@@ -1,0 +1,160 @@
+{
+  "entities": {
+    "CoupleRoom": {
+      "title": "CoupleRoom",
+      "description": "Sala privada para la sincronización y espacio seguro de la pareja",
+      "type": "object",
+      "properties": {
+        "duoPairCode": {
+          "type": "string",
+          "maxLength": 20,
+          "description": "Código de vinculación de la pareja"
+        },
+        "members": {
+          "type": "array",
+          "description": "Lista de identificadores de los dos integrantes de la pareja"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Fecha y hora de creación de la sala"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Fecha y hora de la última actualización"
+        }
+      },
+      "required": ["duoPairCode", "members", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Tarjeta y perfil personal independiente de cada integrante (Yorsh / Anita)",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Identificador de usuario propietario exclusivo de la tarjeta"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 50,
+          "description": "Nombre personal de la tarjeta"
+        },
+        "avatar": {
+          "type": "string",
+          "maxLength": 10,
+          "description": "Avatar o emoji principal de la tarjeta"
+        },
+        "status": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Estado de actividad actual"
+        },
+        "statusEmoji": {
+          "type": "string",
+          "maxLength": 10,
+          "description": "Emoji representativo del estado"
+        },
+        "feeling": {
+          "type": "string",
+          "maxLength": 50,
+          "description": "Cómo se siente hoy"
+        },
+        "feelingEmoji": {
+          "type": "string",
+          "maxLength": 10,
+          "description": "Emoji de estado anímico"
+        },
+        "batteryLevel": {
+          "type": "number",
+          "description": "Nivel de batería del teléfono"
+        },
+        "isCharging": {
+          "type": "boolean",
+          "description": "Indicador si el teléfono está cargando"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Momento de última actualización"
+        }
+      },
+      "required": ["userId", "name", "avatar"]
+    },
+    "SharedExpense": {
+      "title": "SharedExpense",
+      "description": "Gasto compartido de la pareja con aislamiento estricto de divisas",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Identificador único del gasto"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Monto del gasto"
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["CLP", "ARS", "USD"],
+          "description": "Moneda estricta"
+        },
+        "category": {
+          "type": "string",
+          "maxLength": 60,
+          "description": "Categoría asignada"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Descripción del gasto"
+        },
+        "date": {
+          "type": "string",
+          "description": "Fecha del gasto YYYY-MM-DD"
+        },
+        "creator": {
+          "type": "string",
+          "description": "Rol de creador ('me' o 'partner')"
+        },
+        "creatorName": {
+          "type": "string",
+          "maxLength": 50,
+          "description": "Nombre de quien registró el gasto"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Momento de creación"
+        }
+      },
+      "required": ["id", "amount", "currency", "category", "date"]
+    },
+    "TestConnection": {
+      "title": "TestConnection",
+      "description": "Documento para validación de conectividad a Firestore",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "Estado de conexión"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "/couples/{coupleId}": {
+      "schema": "#/entities/CoupleRoom",
+      "description": "Documento de la sala de la pareja"
+    },
+    "/couples/{coupleId}/profiles/{memberId}": {
+      "schema": "#/entities/UserProfile",
+      "description": "Tarjetas individuales con propiedad exclusiva"
+    },
+    "/couples/{coupleId}/expenses/{expenseId}": {
+      "schema": "#/entities/SharedExpense",
+      "description": "Gastos compartidos de la pareja"
+    },
+    "/test/{testId}": {
+      "schema": "#/entities/TestConnection",
+      "description": "Colección de diagnóstico de conectividad inicial"
+    }
+  }
+}
